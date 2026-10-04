@@ -1,41 +1,45 @@
 #!/bin/sh
 # Maintainer: Aidan Timson (Timmo) <aidan@timmo.dev>
-pkgname=twitch-notifications-git
+pkgname=upnext-git
 pkgver=0.1.0.r1.abc123
 pkgrel=1
-pkgdesc="Twitch live notifications and desktop controls (git version)"
-arch=('x86_64')
-url="https://github.com/timmo001/twitch-notifications"
+pkgdesc="Twitch live channels, YouTube uploads and a watch-later queue in one feed (git version)"
+arch=('x86_64' 'aarch64')
+url="https://github.com/timmo001/upnext"
 license=('Apache-2.0')
-keywords=('twitch' 'notifications' 'desktop' 'daemon' 'livestream')
-makedepends=('git' 'go')
-depends=('glibc' 'libnotify' 'uwsm' 'zenity')
-provides=('twitch-notifications')
-conflicts=('twitch-notifications')
+install=upnext.install
+makedepends=('git' 'bun')
+depends=('glibc')
+provides=('upnext' 'twitch-notifications')
+conflicts=('upnext' 'upnext-bin' 'twitch-notifications' 'twitch-notifications-git')
+replaces=('twitch-notifications-git')
 options=('!strip')
-source=("$pkgname::git+https://github.com/timmo001/twitch-notifications.git")
+source=("$pkgname::git+https://github.com/timmo001/upnext.git")
 md5sums=('SKIP')
 
 pkgver() {
   cd "$pkgname"
-  printf '0.1.0.r%s.g%s' "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
+  local base_version
+  base_version=$(bun -e 'const pkg = await Bun.file("package.json").json(); process.stdout.write(pkg.version)')
+  printf "%s.r%s.g%s" "$base_version" "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)"
 }
 
 build() {
   cd "$pkgname"
-
-  local version
-  version="$(printf 'r%s.%s' "$(git rev-list --count HEAD)" "$(git rev-parse --short=7 HEAD)")"
-  go build -v -ldflags="-X 'main.Version=${version}'" -o twitch-notifications .
+  bun install --frozen-lockfile
+  bun run build
+  local shell
+  for shell in zsh bash fish; do
+    ./dist/upnext --completions "$shell" >"upnext.$shell"
+  done
 }
 
 package() {
   cd "$srcdir/$pkgname"
-
-  install -Dm755 twitch-notifications "$pkgdir/usr/bin/twitch-notifications"
-  install -Dm755 .scripts/linux/twitch-notifications-recheck "$pkgdir/usr/bin/twitch-notifications-recheck"
-  install -Dm755 .scripts/linux/twitch-notifications-restart "$pkgdir/usr/bin/twitch-notifications-restart"
-  install -Dm644 .scripts/linux/twitch-notifications.desktop "$pkgdir/usr/share/applications/twitch-notifications.desktop"
-  install -Dm644 tray/icon.svg "$pkgdir/usr/share/icons/hicolor/scalable/apps/twitch-notifications.svg"
+  install -Dm755 dist/upnext "$pkgdir/usr/bin/upnext"
+  install -Dm644 .scripts/linux/upnext.service "$pkgdir/usr/lib/systemd/user/upnext.service"
+  install -Dm644 upnext.zsh "$pkgdir/usr/share/zsh/site-functions/_upnext"
+  install -Dm644 upnext.bash "$pkgdir/usr/share/bash-completion/completions/upnext"
+  install -Dm644 upnext.fish "$pkgdir/usr/share/fish/vendor_completions.d/upnext.fish"
   install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 }

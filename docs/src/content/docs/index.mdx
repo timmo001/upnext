@@ -1,0 +1,57 @@
+---
+title: Overview
+description: Twitch live channels, YouTube uploads and a watch-later queue in one feed.
+mode: wide
+---
+
+upnext watches the Twitch channels you follow, the YouTube channels you list and a watch-later queue, and keeps them in one feed. It sends a desktop notification when something goes live, and can open your favourite channels as soon as they start.
+
+```bash
+# What's live, new and saved right now
+upnext feed
+
+# The feed now and after every change, as JSON lines for panels and scripts
+upnext watch --json
+```
+
+## Watch later
+
+Save any web address to the queue. YouTube videos get their title, channel and thumbnail looked up; other links show the title you give them, or the address.
+
+```bash
+upnext queue add https://youtu.be/dQw4w9WgXcQ
+upnext queue add https://example.com/talk --title "That talk"
+
+# Remove a saved item, or hide a YouTube upload, by the ID from feed --json
+upnext watched youtube:dQw4w9WgXcQ
+```
+
+A saved video that's also one of a channel's recent uploads shows once, as the upload. Marking it watched removes both.
+
+## How it fits together
+
+- `upnext serve` runs as a systemd user service. It checks each source, keeps the feed and sends notifications.
+- Every other command is a small client. It connects to the daemon socket, makes one request and exits, or streams the feed.
+- The [Omarchy panel](/omarchy) shows the feed in sections: live, upcoming, new uploads and watch later.
+- From TypeScript, use [`@timmo001/effect-upnext`](/libraries) to talk to the socket directly.
+
+## Get started
+
+| Page | Why |
+| --- | --- |
+| [Install](/install) | Install the Arch package or a release build |
+| [Configuration](/configuration) | Set up Twitch, YouTube and your channels |
+| [Running upnext](/running) | The user service, logs and upgrades |
+| [Omarchy panel](/omarchy) | The bar widget and panel |
+| [Commands](/commands) | Every command and flag |
+| [Libraries](/libraries) | Use the feed from your own Effect app |
+| [Migrating from twitch-notifications](/from-twitch-notifications) | What moves and what changes |
+
+## Machine-readable docs
+
+| URL | Use |
+| --- | --- |
+| https://upnext.timmo.dev/llms.txt | Compact page index |
+| https://upnext.timmo.dev/llms-full.txt | Full docs bundle |
+| https://upnext.timmo.dev/mcp | Hosted MCP (search, page and navigation) |
+| `/{route}.md` | One page as Markdown |

@@ -7,21 +7,15 @@ on:
     branches:
       - main
     paths:
-      - "*.go"
-      - go.mod
-      - go.sum
-      - LICENSE
+      - src/**
+      - packages/**
+      - package.json
+      - bun.lock
       - mise.toml
-      - "auth/**"
-      - "config/**"
-      - "notify/**"
-      - "tray/**"
-      - "twitch/**"
-      - "utils/**"
+      - LICENSE
       - .scripts/linux/PKGBUILD
-      - .scripts/linux/twitch-notifications-recheck
-      - .scripts/linux/twitch-notifications-restart
-      - .scripts/linux/twitch-notifications.desktop
+      - .scripts/linux/upnext.install
+      - .scripts/linux/upnext.service
       - .github/workflows/publish-arch-git.yml
   workflow_dispatch: {}
 
@@ -34,10 +28,9 @@ concurrency:
 
 jobs:
   publish:
-    name: Publish Arch package (twitch-notifications-git)
-    # yamllint disable-line rule:line-length
+    name: Publish Arch package (upnext-git)
     uses: timmo001/workflows/.github/workflows/build-arch-package.yml@f72d1eb6c310502499f5551d65ceca1e478eb266 # 20261003.0
     with:
-      package-name: twitch-notifications-git
+      package-name: upnext-git
     secrets:
       ARCH_REPO_DISPATCH_TOKEN: ${{ secrets.ARCH_REPO_DISPATCH_TOKEN }}

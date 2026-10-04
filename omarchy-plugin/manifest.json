@@ -1,11 +1,11 @@
 {
   "schemaVersion": 1,
-  "id": "timmo.twitch",
-  "name": "Twitch Notifications",
-  "version": "1.0.0",
+  "id": "timmo.upnext",
+  "name": "upnext",
+  "version": "2.0.0",
   "author": "Timmo",
   "license": "Apache-2.0",
-  "description": "Twitch live status, channels, and notification controls",
+  "description": "Twitch live channels, YouTube uploads and a watch-later queue in one feed",
   "kinds": [
     "service",
     "bar-widget"
@@ -16,8 +16,8 @@
     "barWidget": "BarWidget.qml"
   },
   "barWidget": {
-    "displayName": "Twitch Notifications",
-    "description": "Shows live Twitch channels and notification controls",
+    "displayName": "upnext",
+    "description": "Shows what is live and opens the upnext feed",
     "category": "Media",
     "allowMultiple": false,
     "defaultSection": "center",

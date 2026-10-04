@@ -1,0 +1,11 @@
+[
+  "/commands",
+  "/commands/serve",
+  "/commands/feed",
+  "/commands/watch",
+  "/commands/recheck",
+  "/commands/auth",
+  "/commands/channel",
+  "/commands/queue",
+  "/commands/watched"
+]

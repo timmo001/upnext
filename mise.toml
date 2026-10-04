@@ -1,119 +1,157 @@
 min_version = "2025.1.0"
 
 [tools]
-go = "1.27.1"
-
-[tasks.build]
-description = "Build the Go application"
-run = '''
-rm -f twitch-notifications
-VERSION="$(printf 'r%s.%s' "$(git rev-list --count HEAD 2>/dev/null || printf 0)" "$(git rev-parse --short=7 HEAD 2>/dev/null || printf dev)")"
-go build -v -ldflags="-X 'main.Version=$VERSION'" -o twitch-notifications .
-'''
-
-[tasks."build:all"]
-description = "Build the Go application"
-depends = ["build"]
+node = "26.10.0"
+bun = "1.4.2"
+pitchfork = "2.29.0"
 
 [tasks.install]
-description = "Install the Go application"
-run = "go install ."
+description = "Install dependencies"
+run = "bun install"
 
-[tasks.run]
-description = "Build and run the application"
-depends = ["build"]
-run = "./twitch-notifications"
+[tasks.dev]
+description = "Run upnext in watch mode"
+depends = ["install"]
+run = "bun run dev"
 
-[tasks."run:server"]
-description = "Build and run the notification server"
-depends = ["build"]
-run = "./twitch-notifications serve"
+[tasks.build]
+description = "Compile a minified, bytecode-cached upnext binary"
+depends = ["install"]
+run = "bun run build"
 
-[tasks."serve:start"]
-description = "Start the development server through pitchfork"
-run = "pitchfork start backend"
+[tasks."build:packages"]
+description = "Build the publishable packages into their dist directories"
+depends = ["install"]
+run = "bun run build:packages"
 
-[tasks."serve:status"]
-description = "Show the development server status"
-run = "pitchfork status backend"
+[tasks."version:sync"]
+description = "Pin each package's @timmo001/effect-upnext-shared dependency to the shared release version"
+run = '''
+version="$(bun pm pkg get version | tr -d '"')"
+for package in packages/twitch packages/youtube packages/client; do
+  (cd "$package" && bun pm pkg set "dependencies.@timmo001/effect-upnext-shared=$version")
+done
+'''
 
-[tasks."serve:logs"]
-description = "Follow development server logs"
-run = "pitchfork logs -t backend"
-
-[tasks."serve:restart"]
-description = "Restart the development server"
-run = "pitchfork restart backend"
-
-[tasks."serve:stop"]
-description = "Stop the development server and restore the packaged daemon"
-run = "pitchfork stop backend"
-
-[tasks."dev:start"]
-description = "Start the development daemon and panel, then open the panel"
-run = "pitchfork start --force backend panel && omarchy restart shell && omarchy-shell timmo.twitch open"
-
-[tasks."dev:status"]
-description = "Show development daemon and panel status"
-run = "pitchfork status backend && pitchfork status panel"
-
-[tasks."dev:logs"]
-description = "Follow development daemon and panel logs"
-run = "pitchfork logs -t backend panel"
-
-[tasks."dev:restart"]
-description = "Restart the development daemon and panel, then open the panel"
-run = "pitchfork restart backend panel && omarchy restart shell && omarchy-shell timmo.twitch open"
-
-[tasks."dev:stop"]
-description = "Stop development and restore the packaged daemon and installed panel"
-run = "pitchfork stop panel backend && omarchy restart shell"
+[tasks.typecheck]
+description = "Type-check the source"
+depends = ["install"]
+run = "bun run typecheck"
 
 [tasks.test]
-description = "Run Go tests with race detection"
-run = "go test -race -v ./..."
+description = "Run tests"
+depends = ["install"]
+run = "bun run test"
 
-[tasks.audit]
-description = "Scan for known Go vulnerabilities"
-run = "go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 ./..."
+[tasks."test:panel"]
+description = "Run the Omarchy panel's QML tests"
+run = "QT_QPA_PLATFORM=offscreen /usr/lib/qt6/bin/qmltestrunner -input tests/omarchy-plugin"
 
-[tasks."lint:go"]
-description = "Check Go formatting and run go vet"
-run = '''
-unformatted="$(gofmt -l .)"
-if [ -n "$unformatted" ]; then
-  printf 'Go files need formatting:\n%s\n' "$unformatted"
-  exit 1
-fi
-go vet ./...
-'''
+[tasks.lint]
+description = "Lint source with the shared Oxlint rules"
+depends = ["install"]
+run = "bun run lint"
 
-[tasks."lint:all"]
-description = "Run all linters"
-depends = ["lint:go"]
+[tasks.format]
+description = "Format source and configuration"
+depends = ["install"]
+run = "bun run format"
+
+[tasks."format:check"]
+description = "Check formatting without writing"
+depends = ["install"]
+run = "bun run format:check"
 
 [tasks.check]
-description = "Run linters, race-enabled tests and vulnerability scanning"
-depends = ["lint:all", "test", "audit"]
+description = "Lint, type-check, and verify formatting"
+depends = ["lint", "typecheck", "format:check"]
 
-[tasks.clean]
-description = "Remove build artefacts"
-run = "rm -f twitch-notifications"
+[tasks."docs:gen"]
+description = "Regenerate the docs command reference from the CLI's help"
+depends = ["install"]
+run = "bun scripts/generate-cli-reference.ts"
 
-[tasks."clean:dist"]
-description = "Remove package build artefacts"
-run = "rm -rf build dist"
+[tasks."docs:install"]
+description = "Install docs dependencies"
+dir = "docs"
+run = "bun install"
 
-[tasks.deps]
-description = "Install all dependencies"
-run = "go mod tidy"
+[tasks."docs:dev"]
+description = "Run the docs dev server"
+depends = ["docs:install"]
+dir = "docs"
+# A reused Vite cache makes every page fail to resolve Astro's ClientRouter script
+run = ["rm -rf .blume/.cache/vite", "bun run dev"]
 
-[tasks."package:arch"]
-description = "Create the Arch Linux package"
-depends = ["clean:dist", "build:all"]
-run = '''
-VERSION="$(printf 'r%s.%s' "$(git rev-list --count HEAD 2>/dev/null || printf 0)" "$(git rev-parse --short=7 HEAD 2>/dev/null || printf dev)")"
-export VERSION
-chmod +x ./.scripts/linux/create-arch.sh
-./.scripts/linux/create-arch.sh
-'''
+[tasks."docs:build"]
+description = "Build the docs site"
+depends = ["docs:install"]
+dir = "docs"
+run = "bun run build"
+
+[tasks."docs:preview"]
+description = "Preview the built docs site"
+dir = "docs"
+run = "bun run preview"
+
+[tasks."serve:daemon"]
+description = "Start a local daemon in watch mode in the background through Pitchfork"
+depends = ["install"]
+run = "pitchfork start daemon"
+
+[tasks."serve:daemon:status"]
+description = "Show the background local daemon status"
+run = "pitchfork status daemon"
+
+[tasks."serve:daemon:logs"]
+description = "Follow the background local daemon logs"
+run = "pitchfork logs -t daemon"
+
+[tasks."serve:daemon:restart"]
+description = "Restart the background local daemon"
+run = "pitchfork restart daemon"
+
+[tasks."serve:daemon:stop"]
+description = "Stop the background local daemon"
+run = "pitchfork stop daemon"
+
+[tasks."serve:docs:dev"]
+description = "Start the docs dev server in the background through Pitchfork"
+run = "pitchfork start docs"
+
+[tasks."serve:docs:status"]
+description = "Show the background docs dev server status"
+run = "pitchfork status docs"
+
+[tasks."serve:docs:logs"]
+description = "Follow the background docs dev server logs"
+run = "pitchfork logs -t docs"
+
+[tasks."serve:docs:restart"]
+description = "Restart the background docs dev server"
+run = "pitchfork restart docs"
+
+[tasks."serve:docs:stop"]
+description = "Stop the background docs dev server"
+run = "pitchfork stop docs"
+
+[tasks."dev:start"]
+description = "Start the local daemon and panel, then open the panel"
+depends = ["install"]
+run = "pitchfork start --force daemon panel && omarchy restart shell && omarchy-shell timmo.upnext open"
+
+[tasks."dev:status"]
+description = "Show the local daemon and panel status"
+run = "pitchfork status daemon && pitchfork status panel"
+
+[tasks."dev:logs"]
+description = "Follow the local daemon and panel logs"
+run = "pitchfork logs -t daemon panel"
+
+[tasks."dev:restart"]
+description = "Restart the local daemon and panel, then open the panel"
+run = "pitchfork restart daemon panel && omarchy restart shell && omarchy-shell timmo.upnext open"
+
+[tasks."dev:stop"]
+description = "Stop the local daemon and panel and restore the installed panel"
+run = "pitchfork stop panel daemon && omarchy restart shell"

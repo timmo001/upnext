@@ -6,7 +6,7 @@ import qs.Ui
 
 BarWidget {
   id: root
-  moduleName: "timmo.twitch"
+  moduleName: "timmo.upnext"
 
   readonly property bool primaryOnly: setting("primaryOnly", false)
   readonly property string preferredOutput: setting("primaryOutput", "")
@@ -23,22 +23,22 @@ BarWidget {
   }
   readonly property bool activeInstance: !primaryOnly
     || (currentOutput !== "" && currentOutput === activeOutput)
-  readonly property var twitch: bar?.shell?.serviceFor("timmo.twitch")
-  readonly property bool hiddenByState: twitch && twitch.statusState === "active"
+  readonly property var upnext: bar?.shell?.serviceFor("timmo.upnext")
+  readonly property bool hiddenByState: upnext && upnext.statusState === "active"
   readonly property bool hoverRevealed: hiddenByState
     && setting("revealOnHover", true)
     && !!bar
     && bar.barHovered === true
-  readonly property bool shown: !twitch || !hiddenByState || hoverRevealed || opened
-  readonly property string displayText: twitch && twitch.statusState === "live"
-    ? "󰂚 " + twitch.liveCount : "󰂚"
-  readonly property color displayColor: !twitch || twitch.statusState === "inactive"
-    ? "#a55555" : (twitch.statusState === "live" ? "#ac77e5" : "#9b9b9b")
-  readonly property string tooltipText: !twitch || twitch.statusState === "inactive"
-    ? "Twitch Notifications is inactive"
-    : (twitch.statusState === "live"
-      ? twitch.liveCount + " channel" + (twitch.liveCount === 1 ? "" : "s") + " live"
-      : "Twitch Notifications is active")
+  readonly property bool shown: !upnext || !hiddenByState || hoverRevealed || opened
+  readonly property string displayText: upnext && upnext.statusState === "live"
+    ? "󰂚 " + upnext.liveCount : "󰂚"
+  readonly property color displayColor: !upnext || upnext.statusState === "inactive"
+    ? "#a55555" : (upnext.statusState === "live" ? "#ac77e5" : "#9b9b9b")
+  readonly property string tooltipText: !upnext || upnext.statusState === "inactive"
+    ? "upnext is unavailable"
+    : (upnext.statusState === "live"
+      ? upnext.liveCount + " channel" + (upnext.liveCount === 1 ? "" : "s") + " live"
+      : "Nothing live")
 
   readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false
   readonly property bool popoutSwitchClosing: panelLoader.item ? panelLoader.item.popoutSwitchClosing === true : false
@@ -96,7 +96,7 @@ BarWidget {
     panel.settings = root.settings
     panel.anchorItem = button
     panel.hostWidget = root
-    panel.service = root.twitch
+    panel.service = root.upnext
   }
 
   visible: activeInstance && shown
@@ -105,7 +105,7 @@ BarWidget {
 
   onBarChanged: injectPanel()
   onSettingsChanged: injectPanel()
-  onTwitchChanged: injectPanel()
+  onUpnextChanged: injectPanel()
 
   Loader {
     id: panelLoader
@@ -122,10 +122,9 @@ BarWidget {
     active: root.activeInstance
     sourceComponent: Component {
       IpcHandler {
-        target: "timmo.twitch"
-        function refresh(): void { if (root.twitch) root.twitch.refresh() }
-        function recheck(): void { if (root.twitch) root.twitch.recheck(false) }
-        function restart(): void { if (root.twitch) root.twitch.restart() }
+        target: "timmo.upnext"
+        function recheck(): void { if (root.upnext) root.upnext.recheck(false) }
+        function restart(): void { if (root.upnext) root.upnext.restart() }
         function open(): void { root.open() }
         function close(): void { root.close() }
         function show(): void { root.open() }
@@ -146,9 +145,9 @@ BarWidget {
     tooltipText: root.tooltipText
     horizontalMargin: 6
     onPressed: function(buttonCode) {
-      if (!root.twitch) return
-      if (buttonCode === Qt.MiddleButton) root.twitch.recheck(false)
-      else if (buttonCode === Qt.RightButton) root.twitch.restart()
+      if (!root.upnext) return
+      if (buttonCode === Qt.MiddleButton) root.upnext.recheck(false)
+      else if (buttonCode === Qt.RightButton) root.upnext.restart()
       else root.togglePanel()
     }
   }

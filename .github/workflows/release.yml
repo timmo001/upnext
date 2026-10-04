@@ -1,0 +1,239 @@
+---
+name: Release
+
+# yamllint disable-line rule:truthy
+on:
+  release:
+    types:
+      - published
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.event.release.tag_name }}
+  cancel-in-progress: false
+
+jobs:
+  tools:
+    name: Resolve release tools
+    if: ${{ !github.event.release.prerelease }}
+    runs-on: ubuntu-latest
+    outputs:
+      bun: ${{ steps.versions.outputs.bun }}
+      node: ${{ steps.versions.outputs.node }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up mise
+        uses: jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566
+
+      - name: Read tool versions
+        id: versions
+        run: |
+          printf 'bun=%s\n' "$(mise current bun)" >> "$GITHUB_OUTPUT"
+          printf 'node=%s\n' "$(mise current node)" >> "$GITHUB_OUTPUT"
+
+  shared-npm:
+    name: effect-upnext-shared npm
+    needs: tools
+    permissions:
+      contents: read
+      id-token: write
+    uses: timmo001/workflows/.github/workflows/publish-npm-package.yml@f72d1eb6c310502499f5551d65ceca1e478eb266 # 20261003.0
+    with:
+      bun-version: ${{ needs.tools.outputs.bun }}
+      node-version: ${{ needs.tools.outputs.node }}
+      package-path: packages/shared
+      check-command: cd ../.. && bun run check && bun run test
+
+  shared-jsr:
+    name: effect-upnext-shared JSR
+    needs: tools
+    permissions:
+      contents: read
+      id-token: write
+    uses: timmo001/workflows/.github/workflows/publish-jsr-package.yml@f72d1eb6c310502499f5551d65ceca1e478eb266 # 20261003.0
+    with:
+      bun-version: ${{ needs.tools.outputs.bun }}
+      package-path: packages/shared
+      check-command: (cd ../.. && bun run check && bun run test) && bun run build
+
+  # effect-twitch pins @timmo001/effect-upnext-shared to this release, so publish it once effect-upnext-shared is out.
+  twitch-npm:
+    name: effect-twitch npm
+    needs:
+      - tools
+      - shared-npm
+    permissions:
+      contents: read
+      id-token: write
+    uses: timmo001/workflows/.github/workflows/publish-npm-package.yml@f72d1eb6c310502499f5551d65ceca1e478eb266 # 20261003.0
+    with:
+      bun-version: ${{ needs.tools.outputs.bun }}
+      node-version: ${{ needs.tools.outputs.node }}
+      package-path: packages/twitch
+      check-command: cd ../.. && bun run check && bun run test
+
+  twitch-jsr:
+    name: effect-twitch JSR
+    needs:
+      - tools
+      - shared-jsr
+    permissions:
+      contents: read
+      id-token: write
+    uses: timmo001/workflows/.github/workflows/publish-jsr-package.yml@f72d1eb6c310502499f5551d65ceca1e478eb266 # 20261003.0
+    with:
+      bun-version: ${{ needs.tools.outputs.bun }}
+      package-path: packages/twitch
+      # The JSR entry resolves @timmo001/effect-upnext-shared from the workspace, so build it too.
+      check-command: cd ../.. && bun run check && bun run test && bun run build:packages
+
+  youtube-npm:
+    name: effect-youtube npm
+    needs:
+      - tools
+      - shared-npm
+    permissions:
+      contents: read
+      id-token: write
+    uses: timmo001/workflows/.github/workflows/publish-npm-package.yml@f72d1eb6c310502499f5551d65ceca1e478eb266 # 20261003.0
+    with:
+      bun-version: ${{ needs.tools.outputs.bun }}
+      node-version: ${{ needs.tools.outputs.node }}
+      package-path: packages/youtube
+      check-command: cd ../.. && bun run check && bun run test
+
+  youtube-jsr:
+    name: effect-youtube JSR
+    needs:
+      - tools
+      - shared-jsr
+    permissions:
+      contents: read
+      id-token: write
+    uses: timmo001/workflows/.github/workflows/publish-jsr-package.yml@f72d1eb6c310502499f5551d65ceca1e478eb266 # 20261003.0
+    with:
+      bun-version: ${{ needs.tools.outputs.bun }}
+      package-path: packages/youtube
+      # The JSR entry resolves @timmo001/effect-upnext-shared from the workspace, so build it too.
+      check-command: cd ../.. && bun run check && bun run test && bun run build:packages
+
+  # The client pins @timmo001/effect-upnext-shared to this release, so publish it once effect-upnext-shared is out.
+  client-npm:
+    name: effect-upnext npm
+    needs:
+      - tools
+      - shared-npm
+    permissions:
+      contents: read
+      id-token: write
+    uses: timmo001/workflows/.github/workflows/publish-npm-package.yml@f72d1eb6c310502499f5551d65ceca1e478eb266 # 20261003.0
+    with:
+      bun-version: ${{ needs.tools.outputs.bun }}
+      node-version: ${{ needs.tools.outputs.node }}
+      package-path: packages/client
+      check-command: cd ../.. && bun run check && bun run test
+
+  client-jsr:
+    name: effect-upnext JSR
+    needs:
+      - tools
+      - shared-jsr
+    permissions:
+      contents: read
+      id-token: write
+    uses: timmo001/workflows/.github/workflows/publish-jsr-package.yml@f72d1eb6c310502499f5551d65ceca1e478eb266 # 20261003.0
+    with:
+      bun-version: ${{ needs.tools.outputs.bun }}
+      package-path: packages/client
+      # The JSR entry resolves @timmo001/effect-upnext-shared from the workspace, so build it too.
+      check-command: cd ../.. && bun run check && bun run test && bun run build:packages
+
+  linux:
+    name: Linux
+    needs: tools
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    uses: timmo001/workflows/.github/workflows/release-bun-cli-linux.yml@f72d1eb6c310502499f5551d65ceca1e478eb266 # 20261003.0
+    with:
+      binary-name: upnext
+      entrypoint: src/index.ts
+      package-config: .scripts/linux/nfpm.yml
+      bun-version: ${{ needs.tools.outputs.bun }}
+      smoke-test-arguments: |-
+        --version
+        --help
+      package-prepare-command: |-
+        mkdir -p .scripts/linux/completions
+        ./dist/release/root/upnext --completions bash > .scripts/linux/completions/upnext.bash
+        ./dist/release/root/upnext --completions fish > .scripts/linux/completions/upnext.fish
+        ./dist/release/root/upnext --completions zsh > .scripts/linux/completions/_upnext
+      release-version: ${{ github.event.release.tag_name }}
+      source-ref: ${{ github.event.release.tag_name }}
+      existing-release: true
+      attest: true
+
+  prepare-arch-bin:
+    name: Prepare Arch package (upnext-bin)
+    needs: linux
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_VERSION: ${{ github.event.release.tag_name }}
+    steps:
+      - name: Check out release source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          ref: ${{ env.RELEASE_VERSION }}
+
+      - name: Render PKGBUILD
+        uses: timmo001/workflows/.github/actions/prepare-arch-bin@f72d1eb6c310502499f5551d65ceca1e478eb266 # 20261003.0
+        with:
+          releaseVersion: ${{ env.RELEASE_VERSION }}
+          packageName: upnext
+          pkgbuildTemplate: .scripts/linux/PKGBUILD.bin
+          outputDirectory: ${{ runner.temp }}/arch-bin
+          completionsArguments: "--completions {shell}"
+          extraFiles: |-
+            LICENSE
+            .scripts/linux/upnext.service
+            .scripts/linux/upnext.install
+
+      - name: Upload package files
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: arch-upnext-bin-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/arch-bin
+          if-no-files-found: error
+          retention-days: 1
+
+  arch-bin:
+    name: Arch package (upnext-bin)
+    needs: prepare-arch-bin
+    uses: timmo001/workflows/.github/workflows/build-arch-package.yml@f72d1eb6c310502499f5551d65ceca1e478eb266 # 20261003.0
+    with:
+      package-name: upnext-bin
+      package-files-artifact-name: arch-upnext-bin-${{ github.run_id }}-${{ github.run_attempt }}
+      pkgbuild-path: PKGBUILD
+    secrets:
+      ARCH_REPO_DISPATCH_TOKEN: ${{ secrets.ARCH_REPO_DISPATCH_TOKEN }}
+
+  attach-arch-bin:
+    name: Attach Arch package (upnext-bin)
+    needs: arch-bin
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    uses: timmo001/workflows/.github/workflows/attach-release-arch-package.yml@f72d1eb6c310502499f5551d65ceca1e478eb266 # 20261003.0
+    with:
+      artifact-name: ${{ needs.arch-bin.outputs.artifact-name }}
+      release-tag: ${{ github.event.release.tag_name }}
+      package-name: upnext-bin

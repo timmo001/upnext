@@ -1,0 +1,28 @@
+{
+  "name": "upnext-docs",
+  "type": "module",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "blume dev",
+    "start": "blume dev",
+    "build": "blume build --strict",
+    "check": "blume check --strict",
+    "validate": "blume validate --strict",
+    "deploy": "wrangler deploy --config dist/server/wrangler.json",
+    "deploy:preview": "wrangler versions upload --config dist/server/wrangler.json",
+    "preview": "blume preview"
+  },
+  "dependencies": {
+    "@astrojs/cloudflare": "14.3.3",
+    "blume": "2.1.1",
+    "sharp": "0.35.5"
+  },
+  "devDependencies": {
+    "wrangler": "4.147.0"
+  },
+  "trustedDependencies": [
+    "esbuild",
+    "sharp"
+  ]
+}

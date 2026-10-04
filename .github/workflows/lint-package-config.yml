@@ -1,0 +1,27 @@
+---
+name: Lint package configs
+
+# yamllint disable-line rule:truthy
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".scripts/**/*PKGBUILD*"
+      - ".github/workflows/lint-package-config.yml"
+  pull_request:
+    paths:
+      - ".scripts/**/*PKGBUILD*"
+      - ".github/workflows/lint-package-config.yml"
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  pkgbuild:
+    uses: timmo001/workflows/.github/workflows/lint-arch-pkgbuild.yml@f72d1eb6c310502499f5551d65ceca1e478eb266 # 20261003.0
