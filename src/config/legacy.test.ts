@@ -26,9 +26,9 @@ twitch:
 
 const legacyChannels = `---
 watched_channels:
-    - name: cinna
+    - name: some_streamer
       open: true
-    - name: bonnie
+    - name: another_streamer
 `;
 
 const makePaths = Effect.fn(function* (root: string) {
@@ -69,8 +69,8 @@ const expected = {
   },
   channels: {
     twitch: [
-      { name: "cinna", open: true },
-      { name: "bonnie", open: false },
+      { name: "some_streamer", open: true },
+      { name: "another_streamer", open: false },
     ],
     youtube: [],
   },

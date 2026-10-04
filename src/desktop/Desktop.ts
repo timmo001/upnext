@@ -16,7 +16,7 @@ class CommandFailed extends Data.TaggedError("CommandFailed")<{
   readonly message: string;
 }> {}
 
-const appName = "upnext";
+const appName = "Up Next";
 
 const omarchyGlyph = "󰕃";
 

@@ -1,8 +1,8 @@
 # @timmo001/effect-youtube
 
-An Effect client for YouTube: channel RSS feeds, live and upcoming streams from the Data API, oEmbed lookups, and mapping videos to [upnext](https://github.com/timmo001/upnext) media items.
+An Effect client for YouTube: channel RSS feeds, live and upcoming streams from the Data API, oEmbed lookups, and mapping videos to [Up Next](https://github.com/timmo001/upnext) media items.
 
-It works on its own and knows nothing about upnext's config files or socket.
+It works on its own and knows nothing about Up Next's config files or socket.
 
 ## Install
 

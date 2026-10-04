@@ -1,9 +1,9 @@
 ---
 title: Libraries
-description: Use the upnext feed from your own Effect app.
+description: Use the Up Next feed from your own Effect app.
 ---
 
-upnext is built from Effect v4 libraries, published to npm and JSR. They work under Bun and Node.
+Up Next is built from Effect v4 libraries, published to npm and JSR. They work under Bun and Node.
 
 | Package | Use it to |
 | --- | --- |

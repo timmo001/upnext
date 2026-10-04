@@ -1,6 +1,6 @@
 ---
-title: Running upnext
-description: Run upnext as a systemd user service, read its logs and keep it running.
+title: Running Up Next
+description: Run Up Next as a systemd user service, read its logs and keep it running.
 ---
 
 `upnext serve` keeps the feed. Every other command needs it running, so it normally runs as a systemd user service.

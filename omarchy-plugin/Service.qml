@@ -9,7 +9,7 @@ Item {
   property bool connected: false
   property var sources: []
   property var items: []
-  property string errorText: "Connecting to upnext"
+  property string errorText: "Connecting to Up Next"
   property var actionCommand: []
   property string commandPath: "upnext"
   // Empty uses the daemon's default socket.
@@ -43,13 +43,13 @@ Item {
       errorText = ""
       pruneThumbnails()
     } catch (error) {
-      errorText = "Invalid feed from upnext"
+      errorText = "Invalid feed from Up Next"
     }
   }
 
   function disconnect() {
     connected = false
-    errorText = "upnext is unavailable"
+    errorText = "Up Next is unavailable"
   }
 
   function thumbnailFor(item) {

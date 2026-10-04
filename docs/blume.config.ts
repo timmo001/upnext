@@ -3,16 +3,16 @@ import { cloudflare } from "blume/deploy";
 import commandPages from "./commands-sidebar.json" with { type: "json" };
 
 export default defineConfig({
-  title: "upnext",
+  title: "Up Next",
   description:
     "Twitch live channels, YouTube uploads and a watch-later queue in one feed.",
   logo: {
     image: {
-      alt: "upnext",
+      alt: "Up Next",
       dark: "/logo-dark.svg",
       light: "/logo-light.svg",
     },
-    text: "upnext",
+    text: "Up Next",
   },
   content: {
     root: "src/content/docs",

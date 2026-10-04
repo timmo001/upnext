@@ -1,6 +1,6 @@
 # @timmo001/effect-upnext-shared
 
-Effect schemas shared by [upnext](https://github.com/timmo001/upnext)'s media sources and clients.
+Effect schemas shared by [Up Next](https://github.com/timmo001/upnext)'s media sources and clients.
 
 Every source, such as Twitch or YouTube, maps what it finds to the same `MediaItem`, so apps can show one list without handling each platform separately.
 

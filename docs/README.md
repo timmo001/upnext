@@ -1,6 +1,6 @@
-# upnext docs
+# Up Next docs
 
-The [upnext](https://github.com/timmo001/upnext) documentation site, built with Blume and Astro. It's available at <https://upnext.timmo.dev>.
+The [Up Next](https://github.com/timmo001/upnext) documentation site, built with Blume and Astro. It's available at <https://upnext.timmo.dev>.
 
 ## Commands
 

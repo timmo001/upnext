@@ -35,7 +35,7 @@ BarWidget {
   readonly property color displayColor: !upnext || upnext.statusState === "inactive"
     ? "#a55555" : (upnext.statusState === "live" ? "#ac77e5" : "#9b9b9b")
   readonly property string tooltipText: !upnext || upnext.statusState === "inactive"
-    ? "upnext is unavailable"
+    ? "Up Next is unavailable"
     : (upnext.statusState === "live"
       ? upnext.liveCount + " channel" + (upnext.liveCount === 1 ? "" : "s") + " live"
       : "Nothing live")

@@ -1,6 +1,6 @@
 # @timmo001/effect-upnext
 
-Effect client and protocol for [upnext](https://github.com/timmo001/upnext), which gathers Twitch live channels, YouTube uploads and a watch-later queue into one feed and serves it to local apps over a Unix socket.
+Effect client and protocol for [Up Next](https://github.com/timmo001/upnext), which gathers Twitch live channels, YouTube uploads and a watch-later queue into one feed and serves it to local apps over a Unix socket.
 
 Use it to talk to a running `upnext serve` from your own Effect app instead of spawning the `upnext` CLI. It works under Bun and Node.
 

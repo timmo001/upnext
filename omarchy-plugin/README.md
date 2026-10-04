@@ -1,6 +1,6 @@
-# upnext for Omarchy
+# Up Next for Omarchy
 
-An Omarchy bar widget and panel for [upnext][upnext]. It shows Twitch live
+An Omarchy bar widget and panel for [Up Next][upnext]. It shows Twitch live
 channels, YouTube uploads and live streams, and your watch-later queue in one
 feed, and opens or marks them watched.
 
@@ -10,7 +10,7 @@ feed, and opens or marks them watched.
 - `upnext` on `PATH`, with `upnext.service` running
 
 The daemon owns credentials, channels and notifications. Follow the
-[upnext configuration guide][setup] before enabling this plugin.
+[Up Next configuration guide][setup] before enabling this plugin.
 
 ## Install
 
@@ -58,7 +58,7 @@ omarchy-shell shell toggle timmo.upnext
   the first available output is used when this is empty or unavailable
 - `revealOnHover`: reveal the normally hidden widget while hovering the bar
 
-Credentials, channels, auto-open, polling and notifications stay in upnext's
+Credentials, channels, auto-open, polling and notifications stay in Up Next's
 `~/.config/upnext/config.yml` and `channels.yml`. They are not plugin settings.
 
 ## Update
@@ -73,7 +73,7 @@ omarchy plugin update timmo.upnext
 omarchy plugin remove timmo.upnext
 ```
 
-Removing the plugin does not remove upnext or its configuration.
+Removing the plugin does not remove Up Next or its configuration.
 
 ## Validate from source
 

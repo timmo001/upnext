@@ -11,7 +11,7 @@ const callback = new URL(redirectUri);
 
 const htmlPage = (message: string, status = 200) =>
   HttpServerResponse.text(
-    `<!doctype html><title>upnext</title><p>${message}</p>`,
+    `<!doctype html><title>Up Next</title><p>${message}</p>`,
     { status, contentType: "text/html" },
   );
 

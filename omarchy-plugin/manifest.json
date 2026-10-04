@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "timmo.upnext",
-  "name": "upnext",
+  "name": "Up Next",
   "version": "2.0.0",
   "author": "Timmo",
   "license": "Apache-2.0",
@@ -16,8 +16,8 @@
     "barWidget": "BarWidget.qml"
   },
   "barWidget": {
-    "displayName": "upnext",
-    "description": "Shows what is live and opens the upnext feed",
+    "displayName": "Up Next",
+    "description": "Shows what is live and opens the Up Next feed",
     "category": "Media",
     "allowMultiple": false,
     "defaultSection": "center",

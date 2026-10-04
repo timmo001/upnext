@@ -1,8 +1,8 @@
 # @timmo001/effect-twitch
 
-An Effect client for Twitch: sign-in, Helix, EventSub `stream.online` events, and mapping live streams to [upnext](https://github.com/timmo001/upnext) media items.
+An Effect client for Twitch: sign-in, Helix, EventSub `stream.online` events, and mapping live streams to [Up Next](https://github.com/timmo001/upnext) media items.
 
-It works on its own and knows nothing about upnext's config files or socket.
+It works on its own and knows nothing about Up Next's config files or socket.
 
 ## Install
 

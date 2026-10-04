@@ -1,4 +1,4 @@
-# upnext
+# Up Next
 
 What's live, what's new and what you saved for later, in one feed.
 

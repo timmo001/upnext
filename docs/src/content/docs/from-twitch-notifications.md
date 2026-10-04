@@ -1,13 +1,13 @@
 ---
 title: Migrating from twitch-notifications
-description: What upnext imports from twitch-notifications, and what changes.
+description: What Up Next imports from twitch-notifications, and what changes.
 ---
 
-upnext replaces twitch-notifications. The packages replace `twitch-notifications-git`, so installing upnext removes it.
+Up Next replaces twitch-notifications. The packages replace `twitch-notifications-git`, so installing Up Next removes it.
 
 ## What's imported
 
-On first run, if `~/.config/upnext/config.yml` doesn't exist and `~/.config/twitch-notifications/config.yaml` does, upnext copies:
+On first run, if `~/.config/upnext/config.yml` doesn't exist and `~/.config/twitch-notifications/config.yaml` does, Up Next copies:
 
 | From `twitch-notifications` | To `upnext` |
 | --- | --- |
@@ -17,7 +17,7 @@ On first run, if `~/.config/upnext/config.yml` doesn't exist and `~/.config/twit
 | `channels.yml` `watched_channels` | `channels.yml` `twitch` |
 | `config.yaml` `twitch.access_token`, `twitch.refresh_token` | `state.json` |
 
-`system_tray` is dropped, as upnext has no tray icon.
+`system_tray` is dropped, as Up Next has no tray icon.
 
 If a twitch-notifications file is a link into a dotfiles repository, such as one made by stow, the new file is written into the same stow package and linked into place the same way. Your dotfiles stay the source.
 
@@ -25,7 +25,7 @@ The old directory isn't changed, so you can go back to twitch-notifications if y
 
 ## What changes
 
-| twitch-notifications | upnext |
+| twitch-notifications | Up Next |
 | --- | --- |
 | Autostarted by your desktop session | `upnext.service` systemd user service |
 | `twitch-notifications --status-json` | `upnext feed --json` |

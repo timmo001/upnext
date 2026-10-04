@@ -26,7 +26,7 @@ Panel {
     "Open live auto-open channels",
     "Open Twitch following",
     "Open YouTube subscriptions",
-    "Restart upnext"
+    "Restart Up Next"
   ]
   readonly property var actionIcons: ["󰑐", "󰕃", "\uf1e8", "\uf16a", "󰜉"]
   readonly property var actionUrls: [
@@ -317,10 +317,10 @@ Panel {
           spacing: Style.space(12)
 
           PanelHeader {
-            title: "upnext"
-            meta: root.service && root.service.restarting ? "Restarting upnext"
+            title: "Up Next"
+            meta: root.service && root.service.restarting ? "Restarting Up Next"
               : (!root.service || root.service.statusState === "inactive"
-                ? "upnext is unavailable"
+                ? "Up Next is unavailable"
                 : (root.service.statusState === "live"
                   ? root.service.liveCount + " live now"
                   : "Nothing live"))
@@ -358,7 +358,7 @@ Panel {
                       ? !root.service.actionBusy : root.service.canRecheck)
                     iconText: root.actionIcons[modelData.actionIndex]
                     tooltipText: modelData.actionIndex === 4 && root.service && root.service.restarting
-                      ? "Restarting upnext" : modelData.primaryText
+                      ? "Restarting Up Next" : modelData.primaryText
                     foreground: modelData.actionIndex === 4
                       ? (root.bar ? root.bar.urgent : Color.urgent)
                       : Qt.darker(root.contentForeground, 1.15)
