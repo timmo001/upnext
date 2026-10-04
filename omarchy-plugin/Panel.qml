@@ -237,9 +237,18 @@ Panel {
     expanded = next
   }
 
+  // Upcoming starts collapsed when there's nothing in it.
+  function openingExpanded() {
+    var next = Object.assign({}, defaultExpanded)
+    next.upcoming = panelRows.some(function(entry) {
+      return entry.kind === "item" && entry.section === "upcoming"
+    })
+    return next
+  }
+
   function open() {
     now = Date.now()
-    expanded = defaultExpanded
+    expanded = openingExpanded()
     focusedSource = ""
     filterController.reset()
     if (service) service.refreshThumbnails()
