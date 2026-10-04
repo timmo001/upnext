@@ -27,7 +27,6 @@ export class UpnextRpcs extends RpcGroup.make(
     payload: RecheckRequest,
     error: SourceError,
   }),
-  // Adds the channel to channels.yml, or changes its auto-open setting.
   // Starts signing in to the source. The feed shows the source as ok once
   // it has finished.
   Rpc.make("SignIn", {
@@ -35,6 +34,7 @@ export class UpnextRpcs extends RpcGroup.make(
     success: SignInResult,
     error: SourceError,
   }),
+  // Adds the channel to channels.yml, or changes its auto-open setting.
   Rpc.make("AddChannel", {
     payload: ChannelRequest,
     error: SourceError,
