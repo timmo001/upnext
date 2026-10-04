@@ -168,6 +168,10 @@ Panel {
         title: section.title,
         count: rows.length,
         toggleKey: "toggle:" + section.kind,
+        markAllKey: "mark-all:" + section.kind,
+        // What "mark all as watched" covers: the section's videos that match
+        // the filter, collapsed or not.
+        markable: rows.filter(function(entry) { return canMarkWatched(entry.value) }),
         rows: filterController.filterText || expanded[section.kind] ? rows : []
       }
     }).filter(function(section) { return section.count > 0 })
@@ -179,9 +183,18 @@ Panel {
       var section = filteredSections[i]
       if (!filterController.filterText)
         rows.push({ key: section.toggleKey, kind: "toggle", section: section.kind })
+      if (section.markable.length > 0)
+        rows.push({ key: section.markAllKey, kind: "mark-all", section: section.kind })
       rows = rows.concat(section.rows)
     }
     return rows
+  }
+
+  function markAllWatched(kind) {
+    if (!service) return
+    var section = filteredSections.find(function(each) { return each.kind === kind })
+    if (!section) return
+    service.markWatched(section.markable.map(function(entry) { return entry.value.item }))
   }
 
   function toggleSection(kind) {
@@ -261,7 +274,7 @@ Panel {
       if (section.kind !== entry.section) continue
       var sectionItem = sectionRepeater.itemAt(i)
       if (!sectionItem) return null
-      if (entry.kind === "toggle") return sectionItem.heading
+      if (entry.kind === "toggle" || entry.kind === "mark-all") return sectionItem.heading
       return sectionItem.rowAt(section.rows.indexOf(entry))
     }
     return null
@@ -368,6 +381,7 @@ Panel {
     else if (entry.kind === "attention") activateAttention(entry.value)
     else if (entry.kind === "item") activateItem(entry.value, (modifiers & Qt.ShiftModifier) !== 0)
     else if (entry.kind === "toggle") toggleSection(entry.section)
+    else if (entry.kind === "mark-all") markAllWatched(entry.section)
   }
 
   KeyboardPanel {
@@ -626,6 +640,23 @@ Panel {
                   + (filterController.filterText ? " MATCHING" : "")
                 foreground: root.contentForeground
                 fontFamily: root.contentFontFamily
+                trailingControl: sectionColumn.modelData.markable.length > 0 ? markAllButton : null
+
+                Component {
+                  id: markAllButton
+                  PanelActionButton {
+                    iconText: "󰄬"
+                    tooltipText: "Mark all " + sectionColumn.modelData.markable.length
+                      + (filterController.filterText ? " matching" : "") + " as watched"
+                    foreground: root.contentForeground
+                    fontFamily: root.contentFontFamily
+                    hasCursor: filterController.cursorIndex === filterController.indexForKey(sectionColumn.modelData.markAllKey)
+                    onHovered: function(hovered) {
+                      if (hovered) filterController.cursorIndex = filterController.indexForKey(sectionColumn.modelData.markAllKey)
+                    }
+                    onClicked: root.markAllWatched(sectionColumn.modelData.kind)
+                  }
+                }
 
                 MouseArea {
                   anchors.fill: parent
@@ -660,6 +691,7 @@ Panel {
               readonly property var item: entry.item
               readonly property bool live: item.kind === "live"
               readonly property var thumbnail: root.service ? root.service.thumbnailFor(item) : null
+              readonly property bool markable: root.canMarkWatched(entry)
               width: contentColumn.width
               implicitHeight: itemColumn.implicitHeight + Style.space(12)
               hasCursor: filterController.cursorIndex === filterController.indexForKey(modelData.key)
@@ -667,6 +699,10 @@ Panel {
               accent: live ? root.sourceColor(item.source) : root.contentForeground
 
               Row {
+                id: itemRow
+                // Above the row's MouseArea, so the watched button gets its
+                // clicks. Everything else in it lets clicks through.
+                z: 1
                 anchors.left: parent.left
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
@@ -708,7 +744,7 @@ Panel {
 
                 Column {
                   id: itemColumn
-                  width: Math.max(0, parent.width - Style.space(124))
+                  width: Math.max(0, parent.width - Style.space(124) - (itemSurface.markable ? watchedButton.width + itemRow.spacing : 0))
                   spacing: Style.space(2)
 
                   Text {
@@ -740,6 +776,17 @@ Panel {
                     font.pixelSize: Style.font.caption
                     elide: Text.ElideRight
                   }
+                }
+
+                PanelActionButton {
+                  id: watchedButton
+                  visible: itemSurface.markable
+                  anchors.verticalCenter: parent.verticalCenter
+                  iconText: "󰄬"
+                  tooltipText: "Mark as watched"
+                  foreground: root.contentForeground
+                  fontFamily: root.contentFontFamily
+                  onClicked: if (root.service) root.service.markWatched(itemSurface.item)
                 }
 
                 Text {

@@ -37,6 +37,8 @@ Rectangle {
 
   Loader {
     id: trailingLoader
+    // Above any MouseArea a heading adds, so its button gets the clicks.
+    z: 1
     sourceComponent: root.trailingControl
     anchors.right: parent.right
     anchors.rightMargin: Style.space(8)

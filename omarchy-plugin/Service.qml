@@ -134,9 +134,11 @@ Item {
     runAction(restartCommand)
   }
 
-  function markWatched(item) {
-    if (!item || !connected) return
-    Quickshell.execDetached(command(["watched", String(item.id)]))
+  // Takes one item or a list, and marks them in a single call.
+  function markWatched(items) {
+    var list = [].concat(items).filter(function(item) { return !!item })
+    if (list.length === 0 || !connected) return
+    Quickshell.execDetached(command(["watched"].concat(list.map(function(item) { return String(item.id) }))))
   }
 
   // Adds the item's channel to channels.yml. Twitch takes the login, which is
