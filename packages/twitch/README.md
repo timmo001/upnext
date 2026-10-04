@@ -52,7 +52,8 @@ const live = Effect.gen(function* () {
 
 - `validate`: checks the token, refreshing it if needed, and returns who it belongs to. Twitch asks apps to do this hourly.
 - `users(logins)` and `streams(logins)`: look up channels and their live streams, 100 at a time.
-- `followedStreams(userId)`: live streams from followed channels.
+- `followedStreams(userId)`: live streams from followed channels, with viewer counts.
+- `followedChannels(userId)`: every followed channel, live or not.
 - `streamOnline(broadcasterIds)`: a stream of EventSub `stream.online` events that reconnects forever. It needs a `Socket.WebSocketConstructor`. Twitch allows up to `maxEventSubChannels` (10) channels per user token.
 
 Failures are a `TwitchError`, or a `TwitchAuthError` when someone needs to sign in again. Neither includes response bodies, so tokens don't end up in logs.

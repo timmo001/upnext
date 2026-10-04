@@ -31,9 +31,12 @@ export default defineConfig({
     sidebar: [
       "/",
       "/install",
+      {
+        label: "Setup",
+        items: ["/setup/twitch", "/setup/youtube", "/omarchy"],
+      },
       "/configuration",
       "/running",
-      "/omarchy",
       "/libraries",
       {
         label: "Commands",

@@ -29,11 +29,11 @@ DESCRIPTION
   Add a channel, or change whether it opens when live
 
 USAGE
-  upnext channel add [flags] <source> <name>
+  upnext channel add [flags] [<source>] [<name>]
 
 ARGUMENTS
-  source choice    twitch or youtube
-  name string      A Twitch login or a YouTube channel ID
+  source choice    twitch or youtube. Asks which when left out (optional)
+  name string      A Twitch login or a YouTube channel ID. Without one, pick from the channels you follow (optional)
 
 FLAGS
   --socket string    Path to the daemon socket (default: $UPNEXT_SOCK, then $XDG_RUNTIME_DIR/upnext/upnext.sock)

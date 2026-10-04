@@ -59,8 +59,9 @@ main.pipe(Effect.provide(BunServices.layer), BunRuntime.runMain);
 | `GetFeed` | Returns each source's status and every item |
 | `WatchFeed` | Streams the whole feed, then again after each change |
 | `Recheck` | Checks every source, or one, now |
-| `SignIn` | Starts signing in to Twitch and returns the page the daemon opened |
+| `SignIn` | Starts signing in to Twitch or Google and returns the page the daemon opened |
 | `AddChannel`, `RemoveChannel` | Change `channels.yml` |
+| `ListCandidates` | Followed Twitch channels or YouTube subscriptions not in `channels.yml` yet |
 | `QueueAdd` | Saves a URL to watch later |
 | `MarkWatched` | Hides a YouTube upload or removes a saved item |
 
