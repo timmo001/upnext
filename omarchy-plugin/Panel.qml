@@ -267,6 +267,18 @@ Panel {
     return itemForEntry(filterController.selectedEntry())
   }
 
+  // Where the pointer last selected a row from. Qt resends hover each frame
+  // when rows move under a still pointer, so scrolling or a feed update
+  // would otherwise move the selection to whatever row ends up under it.
+  property point hoverPoint: Qt.point(-1, -1)
+
+  function hoverSelect(area, mouse, key) {
+    var point = area.mapToGlobal(mouse.x, mouse.y)
+    if (point.x === hoverPoint.x && point.y === hoverPoint.y) return
+    hoverPoint = point
+    filterController.cursorIndex = filterController.indexForKey(key)
+  }
+
   function itemForEntry(entry) {
     if (!entry) return null
     if (entry.kind === "header-action") return actionsHeader
@@ -575,10 +587,11 @@ Panel {
                 }
 
                 MouseArea {
+                  id: actionHover
                   anchors.fill: parent
                   hoverEnabled: true
                   cursorShape: Qt.PointingHandCursor
-                  onEntered: filterController.cursorIndex = filterController.indexForKey(modelData.key)
+                  onPositionChanged: function(mouse) { root.hoverSelect(actionHover, mouse, modelData.key) }
                   onClicked: root.activateAction(modelData.actionIndex)
                 }
               }
@@ -654,10 +667,11 @@ Panel {
                 }
 
                 MouseArea {
+                  id: sourceHover
                   anchors.fill: parent
                   hoverEnabled: true
                   cursorShape: modelData.value.state === "auth-required" ? Qt.PointingHandCursor : Qt.ArrowCursor
-                  onEntered: filterController.cursorIndex = filterController.indexForKey(modelData.key)
+                  onPositionChanged: function(mouse) { root.hoverSelect(sourceHover, mouse, modelData.key) }
                   onClicked: root.activateAttention(modelData.value)
                 }
               }
@@ -707,11 +721,12 @@ Panel {
                 }
 
                 MouseArea {
+                  id: toggleHover
                   anchors.fill: parent
                   enabled: !filterController.filterText
                   hoverEnabled: true
                   cursorShape: Qt.PointingHandCursor
-                  onEntered: filterController.cursorIndex = filterController.indexForKey(sectionColumn.modelData.toggleKey)
+                  onPositionChanged: function(mouse) { root.hoverSelect(toggleHover, mouse, sectionColumn.modelData.toggleKey) }
                   onClicked: root.toggleSection(sectionColumn.modelData.kind)
                 }
               }
@@ -826,17 +841,6 @@ Panel {
                   }
                 }
 
-                PanelActionButton {
-                  id: watchedButton
-                  visible: itemSurface.markable
-                  anchors.verticalCenter: parent.verticalCenter
-                  iconText: "󰄬"
-                  tooltipText: "Mark as watched"
-                  foreground: root.contentForeground
-                  fontFamily: root.contentFontFamily
-                  onClicked: if (root.service) root.service.markWatched(itemSurface.item)
-                }
-
                 Text {
                   width: Style.space(20)
                   text: itemSurface.entry.autoOpen === true ? "󰉁" : root.sourceIcon(itemSurface.item.source)
@@ -847,14 +851,26 @@ Panel {
                   font.pixelSize: Style.font.caption
                   horizontalAlignment: Text.AlignHCenter
                 }
+
+                PanelActionButton {
+                  id: watchedButton
+                  visible: itemSurface.markable
+                  anchors.verticalCenter: parent.verticalCenter
+                  iconText: "󰄬"
+                  tooltipText: "Mark as watched"
+                  foreground: root.contentForeground
+                  fontFamily: root.contentFontFamily
+                  onClicked: if (root.service) root.service.markWatched(itemSurface.item)
+                }
               }
 
               MouseArea {
+                id: itemHover
                 anchors.fill: parent
                 hoverEnabled: true
                 acceptedButtons: Qt.LeftButton | Qt.RightButton
                 cursorShape: Qt.PointingHandCursor
-                onEntered: filterController.cursorIndex = filterController.indexForKey(itemSurface.modelData.key)
+                onPositionChanged: function(mouse) { root.hoverSelect(itemHover, mouse, itemSurface.modelData.key) }
                 onClicked: function(mouse) {
                   if (mouse.button === Qt.RightButton)
                     root.openItemMenu(itemSurface.entry, itemSurface, mouse.x, mouse.y)
