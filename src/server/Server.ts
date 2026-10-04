@@ -254,8 +254,8 @@ export const serve = (socketPath: string) =>
           Layer.provide(
             Layer.mergeAll(
               TwitchSource.layer,
-              YouTubeSource.layer,
-              WatchLater.layer,
+              // Watch later keeps the YouTube playlist in step.
+              WatchLater.layer.pipe(Layer.provideMerge(YouTubeSource.layer)),
             ),
           ),
           Layer.provide(

@@ -14,6 +14,7 @@ import {
   Semaphore,
   String as Str,
 } from "effect";
+import { playlistIdFrom } from "@timmo001/effect-youtube";
 
 export class ConfigError extends Schema.TaggedError<ConfigError>()(
   "ConfigError",
@@ -113,6 +114,8 @@ export const ConfigFile = Schema.Struct({
       client_id: withDefault(Schema.String, ""),
       client_secret: withDefault(Schema.String, ""),
       poll_interval: withDefault(Schema.Finite, 600),
+      // A playlist ID or URL, kept in step with the watch-later queue.
+      watch_later_playlist: withDefault(Schema.String, ""),
     }),
     {},
   ),
@@ -151,6 +154,8 @@ export interface Settings {
       readonly clientSecret: Redacted.Redacted;
     }>;
     readonly pollInterval: Duration.Duration;
+    // The playlist that holds YouTube videos saved to watch later.
+    readonly watchLaterPlaylist: Option.Option<string>;
   };
 }
 
@@ -240,6 +245,26 @@ const toSettings = Effect.fn("toSettings")(function* (
   const googleClientId = yield* optionalText(file.youtube.client_id);
   const googleClientSecret = yield* optionalText(file.youtube.client_secret);
 
+  const watchLaterPlaylist = yield* optionalText(
+    file.youtube.watch_later_playlist,
+  ).pipe(
+    Effect.flatMap(
+      Option.match({
+        onNone: () => Effect.succeedNone,
+        onSome: (value) =>
+          Effect.fromOption(playlistIdFrom(value)).pipe(
+            Effect.mapError(
+              () =>
+                new ConfigError({
+                  message: `youtube.watch_later_playlist isn't a playlist ID or URL: ${value}`,
+                }),
+            ),
+            Effect.asSome,
+          ),
+      }),
+    ),
+  );
+
   return {
     notifyOnStartup: file.notify_on_startup,
     soundFile,
@@ -259,6 +284,7 @@ const toSettings = Effect.fn("toSettings")(function* (
         }),
       ),
       pollInterval: positiveSeconds(file.youtube.poll_interval, 600),
+      watchLaterPlaylist,
     },
   } satisfies Settings;
 });

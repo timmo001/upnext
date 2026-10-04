@@ -72,6 +72,7 @@ const expected = {
       client_id: "",
       client_secret: "",
       poll_interval: 600,
+      watch_later_playlist: "",
     },
   },
   channels: {

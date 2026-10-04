@@ -6,6 +6,7 @@ import {
   HashSet,
   Layer,
   Option,
+  Ref,
   Stream,
   String as Str,
 } from "effect";
@@ -24,6 +25,7 @@ import {
 } from "@timmo001/effect-upnext";
 import { FeedStore } from "../feed/Feed.js";
 import { UpnextState } from "../state/State.js";
+import { YouTubeSource } from "./YouTube.js";
 
 // Enough to hide anything still in a channel's feed, even after marking
 // every upload from a long subscription list watched.
@@ -42,7 +44,8 @@ const parseUrl = (value: string) =>
   );
 
 export interface WatchLaterService {
-  // Saves a URL. Saving one that's already saved returns the saved item.
+  // Saves a URL. A YouTube video goes in the watch-later playlist when one is
+  // set. Saving one that's already saved returns the saved item.
   readonly add: (
     url: string,
     title: Option.Option<string>,
@@ -50,7 +53,7 @@ export interface WatchLaterService {
   // Removes a saved item, and hides a YouTube video from the feed for good.
   readonly markWatched: (
     ids: Arr.NonEmptyReadonlyArray<string>,
-  ) => Effect.Effect<void, ItemNotFound>;
+  ) => Effect.Effect<void, ItemNotFound | SourceError>;
 }
 
 export class WatchLater extends Context.Service<
@@ -62,20 +65,37 @@ export class WatchLater extends Context.Service<
     Effect.gen(function* () {
       const state = yield* UpnextState;
       const feed = yield* FeedStore;
+      const youtube = yield* YouTubeSource;
       const http = yield* HttpClient.HttpClient;
 
       // oEmbed needs no API key.
-      const youtube = yield* makeYouTubeClient({ apiKey: Option.none() }).pipe(
-        Effect.provideService(HttpClient.HttpClient, http),
-      );
+      const youtubeClient = yield* makeYouTubeClient({
+        apiKey: Option.none(),
+      }).pipe(Effect.provideService(HttpClient.HttpClient, http));
 
-      const saved = Effect.map(state.get, (current) => current.saved ?? []);
+      // Saved here, then the watch-later playlist.
+      const playlistItems = yield* Ref.make<ReadonlyArray<MediaItem>>([]);
+
+      const local = Effect.map(state.get, (current) => current.saved ?? []);
+
+      const saved = Effect.zipWith(
+        local,
+        Ref.get(playlistItems),
+        (here, there) => Arr.unionWith(here, there, (a, b) => a.id === b.id),
+      );
 
       const publish = Effect.flatMap(saved, (items) =>
         feed.setSaved(Arr.map(items, toFeedItem)),
       );
 
       yield* publish;
+
+      yield* youtube.watchLater.pipe(
+        Stream.runForEach((items) =>
+          Ref.set(playlistItems, items).pipe(Effect.andThen(publish)),
+        ),
+        Effect.forkScoped,
+      );
 
       // Hides videos marked watched on another machine, and shows its saved
       // items.
@@ -96,7 +116,7 @@ export class WatchLater extends Context.Service<
       ) {
         const url = videoUrl(videoId);
 
-        const details = yield* youtube.oembed(url).pipe(
+        const details = yield* youtubeClient.oembed(url).pipe(
           Effect.asSome,
           Effect.catch((error) =>
             Effect.logWarning("Couldn't look up the video", error.message).pipe(
@@ -151,6 +171,14 @@ export class WatchLater extends Context.Service<
         );
 
         const videoId = videoIdFromUrl(url.href);
+
+        if (Option.isSome(videoId)) {
+          const inPlaylist = yield* youtube.saveToWatchLater(videoId.value);
+
+          if (Option.isSome(inPlaylist)) {
+            return toFeedItem(inPlaylist.value);
+          }
+        }
 
         const existing = Arr.findFirst(yield* saved, (item) =>
           Option.match(videoId, {
@@ -208,7 +236,7 @@ export class WatchLater extends Context.Service<
         );
 
         const feedIds = HashSet.fromIterable(
-          Arr.map((yield* feed.get).items, ({ item }) => item.id),
+          Arr.map((yield* feed.reported).items, ({ item }) => item.id),
         );
 
         const isYouTube = Str.startsWith("youtube:");
@@ -228,6 +256,8 @@ export class WatchLater extends Context.Service<
 
         const marked = HashSet.fromIterable(ids);
         const youtubeIds = Arr.filter(ids, isYouTube);
+
+        yield* youtube.removeFromWatchLater(youtubeIds);
 
         yield* state
           .update((current) => ({

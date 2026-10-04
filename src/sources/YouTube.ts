@@ -20,20 +20,26 @@ import {
   Semaphore,
   Stream,
   String as Str,
+  SubscriptionRef,
 } from "effect";
 import { HttpClient } from "effect/http";
-import type { MediaKind } from "@timmo001/effect-upnext-shared";
+import type { MediaItem, MediaKind } from "@timmo001/effect-upnext-shared";
 import {
   authorizeUrl,
   exchangeCode,
   type FeedEntry,
   type GoogleTokens,
   make as makeYouTubeClient,
+  manageScope,
+  type PlaylistEntry,
   refreshTokens,
+  requiredScope,
   type Subscription,
   toMediaItem,
+  toSavedItem,
   type VideoDetails,
   YouTubeAuthError,
+  type YouTubeError,
 } from "@timmo001/effect-youtube";
 import {
   type ChannelCandidate,
@@ -41,7 +47,7 @@ import {
   SourceError,
   type SourceStatus,
 } from "@timmo001/effect-upnext";
-import { UpnextConfig } from "../config/Config.js";
+import { type ConfigError, UpnextConfig } from "../config/Config.js";
 import { Desktop } from "../desktop/Desktop.js";
 import { FeedStore } from "../feed/Feed.js";
 import { UpnextState } from "../state/State.js";
@@ -71,6 +77,25 @@ const noGoogleClient =
   "Set youtube.client_id and youtube.client_secret to sign in";
 
 const signInMessage = "Run upnext auth youtube to see your subscriptions";
+
+const noPlaylistSignIn =
+  "Set youtube.client_id and youtube.client_secret, then sign in, to use your watch-later playlist";
+
+const noPlaylistAccess =
+  "The Google sign-in doesn't allow changing your watch-later playlist";
+
+const signInAgain = "Run upnext auth youtube to sign in again";
+
+// A sign-in from before the playlist was set may only allow reading. Google
+// not saying counts as allowed, and the API has the final word.
+const canChangePlaylists = (tokens: Option.Option<GoogleTokens>) =>
+  Option.match(
+    Option.flatMap(tokens, ({ scopes }) => scopes),
+    {
+      onNone: () => true,
+      onSome: (scopes) => Arr.contains(scopes, manageScope),
+    },
+  );
 
 const youtubeError = (message: string) =>
   new SourceError({ source: "youtube", message });
@@ -103,6 +128,18 @@ export interface YouTubeSourceService {
     open: Option.Option<boolean>,
   ) => Effect.Effect<void, SourceError>;
   readonly removeChannel: (id: string) => Effect.Effect<void, SourceError>;
+  // The watch-later playlist as saved items, then after each change. Empty
+  // until it's been read, and when there's no playlist set.
+  readonly watchLater: Stream.Stream<ReadonlyArray<MediaItem>>;
+  // Adds a video to the watch-later playlist, or returns None when there's
+  // no playlist set.
+  readonly saveToWatchLater: (
+    videoId: string,
+  ) => Effect.Effect<Option.Option<MediaItem>, SourceError>;
+  // Removes any of these item IDs that are in the watch-later playlist.
+  readonly removeFromWatchLater: (
+    ids: ReadonlyArray<string>,
+  ) => Effect.Effect<void, SourceError>;
 }
 
 export class YouTubeSource extends Context.Service<
@@ -127,6 +164,14 @@ export class YouTubeSource extends Context.Service<
 
       // The access token from the last refresh, kept until it nearly expires.
       const session = yield* Ref.make(Option.none<GoogleTokens>());
+
+      // The watch-later playlist as last read or changed. Reads and changes
+      // take turns, so a check doesn't undo a change made while it ran.
+      const playlist = yield* SubscriptionRef.make<
+        ReadonlyArray<PlaylistEntry>
+      >([]);
+
+      const playlistLock = yield* Semaphore.make(1);
 
       // Channels read at least once. A channel's first read isn't announced,
       // so adding one doesn't announce a week of uploads.
@@ -230,6 +275,57 @@ export class YouTubeSource extends Context.Service<
               ? Option.some(failureStatus(subscribed.failure))
               : Option.none<SourceStatus>();
 
+          // What's wrong with the watch-later playlist, if anything. A
+          // playlist that can't be read keeps what it had.
+          const playlistProblem: Option.Option<SourceStatus> =
+            yield* Option.match(settings.youtube.watchLaterPlaylist, {
+              onNone: () =>
+                SubscriptionRef.set(playlist, []).pipe(
+                  Effect.as(Option.none()),
+                ),
+              onSome: (playlistId) =>
+                Option.isNone(signedIn)
+                  ? Effect.succeed(
+                      Option.isNone(settings.youtube.google)
+                        ? Option.some<SourceStatus>({
+                            source: "youtube",
+                            state: "error",
+                            message: noPlaylistSignIn,
+                            checkedAt: now,
+                          })
+                        : Option.none(),
+                    )
+                  : client.playlistItems(playlistId).pipe(
+                      Effect.flatMap((entries) =>
+                        SubscriptionRef.set(playlist, entries),
+                      ),
+                      Semaphore.withPermit(playlistLock),
+                      Effect.andThen(Ref.get(session)),
+                      Effect.map((current) =>
+                        canChangePlaylists(current)
+                          ? Option.none()
+                          : Option.some<SourceStatus>({
+                              source: "youtube",
+                              state: "auth-required",
+                              message: `${noPlaylistAccess}. ${signInAgain}`,
+                              checkedAt: now,
+                            }),
+                      ),
+                      Effect.catch((error) =>
+                        Effect.succeed(
+                          Option.some(
+                            failureStatus({
+                              _tag: error._tag,
+                              message: `Couldn't read your watch-later playlist: ${error.message}`,
+                            }),
+                          ),
+                        ),
+                      ),
+                    ),
+            });
+
+          const problem = Option.orElse(authFailure, () => playlistProblem);
+
           const trackedChannels = HashMap.fromIterable(
             Arr.map(
               channels,
@@ -251,7 +347,7 @@ export class YouTubeSource extends Context.Service<
 
           if (Arr.isReadonlyArrayEmpty(targets)) {
             yield* feed.setSource(
-              Option.getOrElse(authFailure, () => ({
+              Option.getOrElse(problem, () => ({
                 source: "youtube",
                 state: "disabled",
                 message: noChannels,
@@ -268,8 +364,8 @@ export class YouTubeSource extends Context.Service<
           );
 
           const before = Arr.filter(
-            (yield* feed.get).items,
-            ({ item }) => item.source === "youtube",
+            (yield* feed.reported).items,
+            ({ item }) => item.source === "youtube" && item.kind !== "saved",
           );
 
           const results = yield* Effect.forEach(
@@ -385,7 +481,7 @@ export class YouTubeSource extends Context.Service<
                     checkedAt: now,
                   };
 
-          const status = Option.getOrElse(authFailure, () =>
+          const status = Option.getOrElse(problem, () =>
             Arr.match(failures, {
               onEmpty: (): SourceStatus =>
                 Result.isFailure(details)
@@ -578,6 +674,10 @@ export class YouTubeSource extends Context.Service<
           clientId: google.clientId,
           redirectUri: youtubeSignIn.redirectUri,
           state: signInState,
+          // Changing the watch-later playlist needs more than reading.
+          scope: Option.isSome(settings.youtube.watchLaterPlaylist)
+            ? manageScope
+            : requiredScope,
         });
 
         yield* desktop.open(url);
@@ -696,12 +796,165 @@ export class YouTubeSource extends Context.Service<
         yield* requestCheck;
       });
 
+      // A rejected sign-in also shows in the feed, so the panel offers to
+      // sign in again.
+      const playlistErrors = <A, R>(
+        effect: Effect.Effect<
+          A,
+          ConfigError | SourceError | YouTubeError | YouTubeAuthError,
+          R
+        >,
+      ) =>
+        effect.pipe(
+          Effect.catchTag("YouTubeAuthError", (error) =>
+            Effect.flatMap(DateTime.now, (checkedAt) =>
+              feed.setStatus({
+                source: "youtube",
+                state: "auth-required",
+                message: `${error.message}. ${signInAgain}`,
+                checkedAt,
+              }),
+            ).pipe(
+              Effect.andThen(
+                Effect.fail(youtubeError(`${error.message}. ${signInAgain}`)),
+              ),
+            ),
+          ),
+          Effect.mapError(toSourceError),
+        );
+
+      // The signed-in client and the playlist, or None when there's no
+      // playlist set.
+      const playlistAccess = Effect.gen(function* () {
+        const { youtube } = yield* config.settings;
+
+        if (Option.isNone(youtube.watchLaterPlaylist)) {
+          return Option.none();
+        }
+
+        const token = yield* accessToken;
+
+        if (Option.isNone(token)) {
+          return yield* youtubeError(
+            Option.isNone(youtube.google)
+              ? noPlaylistSignIn
+              : "Run upnext auth youtube to use your watch-later playlist",
+          );
+        }
+
+        const client = yield* makeYouTubeClient({
+          apiKey: Option.none(),
+          accessToken: token,
+        }).pipe(provideHttp);
+
+        return Option.some({
+          client,
+          playlistId: youtube.watchLaterPlaylist.value,
+        });
+      });
+
+      const requirePlaylistAccess = Effect.flatMap(
+        Ref.get(session),
+        (current) =>
+          canChangePlaylists(current)
+            ? Effect.void
+            : Effect.fail(new YouTubeAuthError({ message: noPlaylistAccess })),
+      );
+
+      const saveToWatchLater = Effect.fn("YouTubeSource.saveToWatchLater")(
+        function* (videoId: string) {
+          const access = yield* playlistAccess;
+
+          if (Option.isNone(access)) {
+            return Option.none<MediaItem>();
+          }
+
+          const { client, playlistId } = access.value;
+
+          const entry = yield* Effect.gen(function* () {
+            const existing = Arr.findFirst(
+              yield* SubscriptionRef.get(playlist),
+              (each) => each.videoId === videoId,
+            );
+
+            if (Option.isSome(existing)) {
+              return existing.value;
+            }
+
+            yield* requirePlaylistAccess;
+
+            const added = yield* client.addToPlaylist(playlistId, videoId);
+
+            yield* SubscriptionRef.update(playlist, Arr.append(added));
+
+            return added;
+          }).pipe(Semaphore.withPermit(playlistLock));
+
+          return Option.some(toSavedItem(entry));
+        },
+        playlistErrors,
+      );
+
+      const removeFromWatchLater = Effect.fn(
+        "YouTubeSource.removeFromWatchLater",
+      )(function* (ids: ReadonlyArray<string>) {
+        const wanted = HashSet.fromIterable(ids);
+
+        const isWanted = ({ videoId }: PlaylistEntry) =>
+          HashSet.has(wanted, `youtube:${videoId}`);
+
+        if (!Arr.some(yield* SubscriptionRef.get(playlist), isWanted)) {
+          return;
+        }
+
+        const access = yield* playlistAccess;
+
+        if (Option.isNone(access)) {
+          return;
+        }
+
+        const { client } = access.value;
+
+        yield* Effect.gen(function* () {
+          const entries = Arr.filter(
+            yield* SubscriptionRef.get(playlist),
+            isWanted,
+          );
+
+          yield* requirePlaylistAccess;
+
+          // One already removed on YouTube is gone either way.
+          yield* Effect.forEach(
+            entries,
+            ({ itemId }) =>
+              client
+                .removeFromPlaylist(itemId)
+                .pipe(
+                  Effect.catchTag("YouTubeError", (error) =>
+                    error.status === 404 ? Effect.void : Effect.fail(error),
+                  ),
+                ),
+            { concurrency: feedConcurrency, discard: true },
+          );
+
+          yield* SubscriptionRef.update(playlist, (current) =>
+            Arr.filter(current, (entry) => !isWanted(entry)),
+          );
+        }).pipe(Semaphore.withPermit(playlistLock));
+      }, playlistErrors);
+
       return YouTubeSource.of({
         recheck: check,
         signIn,
         candidates,
         addChannel,
         removeChannel,
+        watchLater: Stream.map(
+          SubscriptionRef.changes(playlist),
+          Arr.map(toSavedItem),
+        ),
+        saveToWatchLater,
+        removeFromWatchLater,
       });
     }),
   );

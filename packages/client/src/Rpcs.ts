@@ -49,7 +49,8 @@ export class UpnextRpcs extends RpcGroup.make(
     payload: ChannelRequest,
     error: SourceError,
   }),
-  // Saves a URL to watch later.
+  // Saves a URL to watch later, in the watch-later playlist for a YouTube
+  // video when one is set.
   Rpc.make("QueueAdd", {
     payload: QueueAddRequest,
     success: FeedItem,
@@ -58,6 +59,6 @@ export class UpnextRpcs extends RpcGroup.make(
   // Hides a YouTube upload or removes a saved item.
   Rpc.make("MarkWatched", {
     payload: MarkWatchedRequest,
-    error: ItemNotFound,
+    error: Schema.Union([ItemNotFound, SourceError]),
   }),
 ) {}

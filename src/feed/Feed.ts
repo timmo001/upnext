@@ -8,8 +8,8 @@ import {
   Option,
   Order,
   SubscriptionRef,
+  Stream,
 } from "effect";
-import type { Stream } from "effect";
 import type { MediaKind } from "@timmo001/effect-upnext-shared";
 import type { Feed, FeedItem, SourceStatus } from "@timmo001/effect-upnext";
 
@@ -60,25 +60,38 @@ const isSaved = ({ item }: FeedItem) => item.kind === "saved";
 const isFrom = (source: SourceStatus["source"]) => (feedItem: FeedItem) =>
   feedItem.item.source === source && !isSaved(feedItem);
 
-// Sorts the feed. A saved video that's also a recent upload shows once, as
-// the upload.
-const sortItems = (items: ReadonlyArray<FeedItem>) =>
-  Arr.dedupeWith(
-    Arr.sort(items, feedOrder),
-    (a: FeedItem, b: FeedItem) => a.item.id === b.item.id,
-  );
-
 const replaceItems = (
   feed: Feed,
   belongs: (feedItem: FeedItem) => boolean,
   items: ReadonlyArray<FeedItem>,
 ) =>
-  sortItems(
-    Arr.appendAll(
-      Arr.filter(feed.items, (feedItem) => !belongs(feedItem)),
-      items,
-    ),
+  Arr.appendAll(
+    Arr.filter(feed.items, (feedItem) => !belongs(feedItem)),
+    items,
   );
+
+// The feed as clients see it, sorted. A saved video only shows as saved, so
+// saving a live stream or an upload moves it to the watch-later queue.
+export const present = (feed: Feed): Feed => {
+  const saved = HashSet.fromIterable(
+    Arr.map(Arr.filter(feed.items, isSaved), ({ item }) => item.id),
+  );
+
+  return {
+    ...feed,
+    items: Arr.dedupeWith(
+      Arr.sort(
+        Arr.filter(
+          feed.items,
+          (feedItem) =>
+            isSaved(feedItem) || !HashSet.has(saved, feedItem.item.id),
+        ),
+        feedOrder,
+      ),
+      (a: FeedItem, b: FeedItem) => a.item.id === b.item.id,
+    ),
+  };
+};
 
 // Replaces one source's status and items, leaving the other sources alone.
 export const replaceSource = (
@@ -97,7 +110,10 @@ export const replaceSource = (
 });
 
 export interface FeedStoreService {
+  // The feed as clients see it.
   readonly get: Effect.Effect<Feed>;
+  // Every item each source last reported, including ones a saved item hides.
+  readonly reported: Effect.Effect<Feed>;
   // The current feed, then each change.
   readonly changes: Stream.Stream<Feed>;
   // Replaces the source's slice and returns the items that weren't in it
@@ -124,8 +140,9 @@ export class FeedStore extends Context.Service<FeedStore, FeedStoreService>()(
       const ref = yield* SubscriptionRef.make<Feed>({ sources: [], items: [] });
 
       return FeedStore.of({
-        get: SubscriptionRef.get(ref),
-        changes: SubscriptionRef.changes(ref),
+        get: Effect.map(SubscriptionRef.get(ref), present),
+        reported: SubscriptionRef.get(ref),
+        changes: Stream.map(SubscriptionRef.changes(ref), present),
         setSource: (status, items) =>
           SubscriptionRef.modify(ref, (feed) => {
             const before = HashSet.fromIterable(

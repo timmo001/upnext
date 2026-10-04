@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import type { FeedItem } from "@timmo001/effect-upnext";
 import type { MediaItem } from "@timmo001/effect-upnext-shared";
-import { replaceSource } from "./Feed.js";
+import { present, replaceSource } from "./Feed.js";
 
 const live = (
   id: string,
@@ -56,7 +56,7 @@ describe("replaceSource", () => {
       }),
     ]);
 
-    expect(feed.items.map(({ item }) => item.id)).toEqual([
+    expect(present(feed).items.map(({ item }) => item.id)).toEqual([
       "twitch-first",
       "twitch-second",
       "youtube-first",
@@ -64,6 +64,27 @@ describe("replaceSource", () => {
       "twitch-busy",
       "youtube-other",
       "twitch-quiet",
+    ]);
+  });
+});
+
+describe("present", () => {
+  test("shows a saved video only in the watch-later queue", () => {
+    const stream = live("youtube:abc", "youtube", { tracked: true });
+
+    const saved: FeedItem = {
+      ...stream,
+      item: { ...stream.item, kind: "saved" },
+    };
+
+    const feed = present({
+      sources: [],
+      items: [stream, live("youtube:other", "youtube", {}), saved],
+    });
+
+    expect(feed.items.map(({ item }) => `${item.kind}:${item.id}`)).toEqual([
+      "live:youtube:other",
+      "saved:youtube:abc",
     ]);
   });
 });
