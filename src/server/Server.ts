@@ -12,23 +12,21 @@ import {
 import { FetchHttpClient } from "effect/http";
 import { RpcSerialization, RpcServer } from "effect/rpc";
 import { Socket, SocketServer } from "effect/socket";
-import { ItemNotFound, SourceError, UpnextRpcs } from "@timmo001/effect-upnext";
+import { SourceError, UpnextRpcs } from "@timmo001/effect-upnext";
 import type { Source } from "@timmo001/effect-upnext-shared";
 import { Desktop } from "../desktop/Desktop.js";
 import { FeedStore } from "../feed/Feed.js";
 import { TwitchSource } from "../sources/Twitch.js";
+import { WatchLater } from "../sources/WatchLater.js";
 import { YouTubeSource } from "../sources/YouTube.js";
 import { UpnextState } from "../state/State.js";
-
-// The watch-later queue lands in a later stage; until then it fails plainly.
-const notAvailable = () =>
-  Effect.fail(new SourceError({ message: "not available yet" }));
 
 const Handlers = UpnextRpcs.toLayer(
   Effect.gen(function* () {
     const feed = yield* FeedStore;
     const twitch = yield* TwitchSource;
     const youtube = yield* YouTubeSource;
+    const watchLater = yield* WatchLater;
 
     const recheckSource = (source: Source, open: boolean) => {
       switch (source) {
@@ -94,8 +92,9 @@ const Handlers = UpnextRpcs.toLayer(
             return noChannels(source);
         }
       },
-      QueueAdd: notAvailable,
-      MarkWatched: ({ id }) => Effect.fail(new ItemNotFound({ id })),
+      QueueAdd: ({ url, title }) =>
+        watchLater.add(url, Option.fromUndefinedOr(title)),
+      MarkWatched: ({ id }) => watchLater.markWatched(id),
     });
   }),
 );
@@ -237,7 +236,11 @@ export const serve = (socketPath: string) =>
         ).pipe(
           Layer.provide(Handlers),
           Layer.provide(
-            Layer.mergeAll(TwitchSource.layer, YouTubeSource.layer),
+            Layer.mergeAll(
+              TwitchSource.layer,
+              YouTubeSource.layer,
+              WatchLater.layer,
+            ),
           ),
           Layer.provide(
             Layer.mergeAll(

@@ -36,10 +36,31 @@ const sourceOrder = Order.mapInput(
   ({ source }: SourceStatus) => source,
 );
 
-const isFrom =
-  (source: SourceStatus["source"]) =>
-  ({ item }: FeedItem) =>
-    item.source === source;
+const isSaved = ({ item }: FeedItem) => item.kind === "saved";
+
+// Saved items belong to the watch-later queue, whatever their source.
+const isFrom = (source: SourceStatus["source"]) => (feedItem: FeedItem) =>
+  feedItem.item.source === source && !isSaved(feedItem);
+
+// Sorts the feed. A saved video that's also a recent upload shows once, as
+// the upload.
+const sortItems = (items: ReadonlyArray<FeedItem>) =>
+  Arr.dedupeWith(
+    Arr.sort(items, feedOrder),
+    (a: FeedItem, b: FeedItem) => a.item.id === b.item.id,
+  );
+
+const replaceItems = (
+  feed: Feed,
+  belongs: (feedItem: FeedItem) => boolean,
+  items: ReadonlyArray<FeedItem>,
+) =>
+  sortItems(
+    Arr.appendAll(
+      Arr.filter(feed.items, (feedItem) => !belongs(feedItem)),
+      items,
+    ),
+  );
 
 // Replaces one source's status and items, leaving the other sources alone.
 export const replaceSource = (
@@ -54,13 +75,7 @@ export const replaceSource = (
     ),
     sourceOrder,
   ),
-  items: Arr.sort(
-    Arr.appendAll(
-      Arr.filter(feed.items, (feedItem) => !isFrom(status.source)(feedItem)),
-      items,
-    ),
-    feedOrder,
-  ),
+  items: replaceItems(feed, isFrom(status.source), items),
 });
 
 export interface FeedStoreService {
@@ -76,6 +91,10 @@ export interface FeedStoreService {
   // Replaces the source's status and keeps its items, such as after a
   // failed check.
   readonly setStatus: (status: SourceStatus) => Effect.Effect<void>;
+  // Replaces the watch-later queue.
+  readonly setSaved: (items: ReadonlyArray<FeedItem>) => Effect.Effect<void>;
+  // Drops an item straight away, such as one marked watched.
+  readonly remove: (id: string) => Effect.Effect<void>;
 }
 
 export class FeedStore extends Context.Service<FeedStore, FeedStoreService>()(
@@ -111,6 +130,16 @@ export class FeedStore extends Context.Service<FeedStore, FeedStoreService>()(
               Arr.filter(feed.items, isFrom(status.source)),
             ),
           ).pipe(Effect.withSpan("FeedStore.setStatus")),
+        setSaved: (items) =>
+          SubscriptionRef.update(ref, (feed) => ({
+            ...feed,
+            items: replaceItems(feed, isSaved, items),
+          })),
+        remove: (id) =>
+          SubscriptionRef.update(ref, (feed) => ({
+            ...feed,
+            items: Arr.filter(feed.items, ({ item }) => item.id !== id),
+          })),
       });
     }),
   );

@@ -332,7 +332,15 @@ const watched = Command.make(
     withDaemon(
       Effect.gen(function* () {
         const client = yield* UpnextClient;
-        yield* client.MarkWatched({ id });
+        yield* client.MarkWatched({ id }).pipe(
+          Effect.catchTag("ItemNotFound", () =>
+            Effect.fail(
+              new CommandError({
+                message: `Nothing in the feed has the ID ${id}`,
+              }),
+            ),
+          ),
+        );
       }),
     ),
 ).pipe(Command.withDescription("Hide a YouTube upload or remove a saved item"));
