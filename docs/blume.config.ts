@@ -38,6 +38,7 @@ export default defineConfig({
       "/configuration",
       "/running",
       "/libraries",
+      "/privacy",
       {
         label: "Commands",
         root: "/commands",
@@ -49,7 +50,6 @@ export default defineConfig({
         label: "Migrations",
         items: ["/from-twitch-notifications"],
       },
-      "/privacy",
     ],
   },
   theme: {
