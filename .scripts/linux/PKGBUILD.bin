@@ -11,6 +11,7 @@ install=upnext.install
 depends=('glibc')
 provides=('upnext' 'twitch-notifications')
 conflicts=('upnext' 'upnext-git' 'twitch-notifications' 'twitch-notifications-git')
+replaces=('twitch-notifications')
 options=('!strip')
 source=('upnext.bash' 'upnext.fish' '_upnext' 'upnext.service' 'upnext.svg' 'LICENSE')
 source_x86_64=("upnext-${pkgver}-linux-${CARCH}.tar.gz::$url/releases/download/${pkgver}/upnext-${pkgver}-linux-${CARCH}.tar.gz")
