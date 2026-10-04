@@ -6,6 +6,8 @@ import {
   MarkWatchedRequest,
   QueueAddRequest,
   RecheckRequest,
+  SignInRequest,
+  SignInResult,
   SourceError,
 } from "./Requests.js";
 
@@ -23,6 +25,13 @@ export class UpnextRpcs extends RpcGroup.make(
     error: SourceError,
   }),
   // Adds the channel to channels.yml, or changes its auto-open setting.
+  // Starts signing in to the source. The feed shows the source as ok once
+  // it has finished.
+  Rpc.make("SignIn", {
+    payload: SignInRequest,
+    success: SignInResult,
+    error: SourceError,
+  }),
   Rpc.make("AddChannel", {
     payload: ChannelRequest,
     error: SourceError,

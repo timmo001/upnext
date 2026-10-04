@@ -1,4 +1,4 @@
-import { BunSocketServer } from "@effect/platform-bun";
+import { BunSocket, BunSocketServer } from "@effect/platform-bun";
 import {
   Cause,
   Effect,
@@ -9,26 +9,58 @@ import {
   PlatformError,
   Predicate,
 } from "effect";
+import { FetchHttpClient } from "effect/http";
 import { RpcSerialization, RpcServer } from "effect/rpc";
 import { Socket, SocketServer } from "effect/socket";
 import { ItemNotFound, SourceError, UpnextRpcs } from "@timmo001/effect-upnext";
+import type { Source } from "@timmo001/effect-upnext-shared";
+import { Desktop } from "../desktop/Desktop.js";
 import { FeedStore } from "../feed/Feed.js";
+import { TwitchSource } from "../sources/Twitch.js";
+import { UpnextState } from "../state/State.js";
 
 // Sources land in later stages; until then their requests fail plainly.
-const notAvailable = () =>
-  Effect.fail(new SourceError({ message: "not available yet" }));
+const notAvailable = (source: Source | undefined) =>
+  Effect.fail(new SourceError({ source, message: "not available yet" }));
 
 const Handlers = UpnextRpcs.toLayer(
   Effect.gen(function* () {
     const feed = yield* FeedStore;
+    const twitch = yield* TwitchSource;
 
     return UpnextRpcs.of({
       GetFeed: () => feed.get,
       WatchFeed: () => feed.changes,
-      Recheck: notAvailable,
-      AddChannel: notAvailable,
-      RemoveChannel: notAvailable,
-      QueueAdd: notAvailable,
+      Recheck: ({ source, open }) =>
+        Option.match(Option.fromUndefinedOr(source), {
+          // A source that isn't running doesn't fail a recheck of them all.
+          onNone: () =>
+            twitch
+              .recheck(open)
+              .pipe(
+                Effect.catch((error) =>
+                  Effect.logDebug("Skipped recheck", error.message),
+                ),
+              ),
+          onSome: (only) =>
+            only === "twitch" ? twitch.recheck(open) : notAvailable(only),
+        }),
+      SignIn: ({ source }) =>
+        source === "twitch"
+          ? Effect.map(twitch.signIn, (url) => ({ url }))
+          : Effect.fail(
+              new SourceError({
+                source,
+                message: `${source} doesn't need signing in`,
+              }),
+            ),
+      AddChannel: ({ source, name, open }) =>
+        source === "twitch"
+          ? twitch.addChannel(name, Option.fromUndefinedOr(open))
+          : notAvailable(source),
+      RemoveChannel: ({ source, name }) =>
+        source === "twitch" ? twitch.removeChannel(name) : notAvailable(source),
+      QueueAdd: () => notAvailable(undefined),
       MarkWatched: ({ id }) => Effect.fail(new ItemNotFound({ id })),
     });
   }),
@@ -170,6 +202,15 @@ export const serve = (socketPath: string) =>
           secureSocket(socketPath),
         ).pipe(
           Layer.provide(Handlers),
+          Layer.provide(TwitchSource.layer),
+          Layer.provide(
+            Layer.mergeAll(
+              UpnextState.layer,
+              Desktop.layer,
+              FetchHttpClient.layer,
+              BunSocket.layerWebSocketConstructor,
+            ),
+          ),
           Layer.provide(RpcServer.layerProtocolSocketServer),
           Layer.provide(RpcSerialization.layerNdjson),
           Layer.provide(quietSocketServer(socketPath)),

@@ -71,6 +71,7 @@ const liveCount = Effect.gen(function* () {
 ### Change things
 
 - `Recheck({ source, open })` checks every source, or one, now. With `open`, live channels set to auto-open open even if they were already live.
+- `SignIn({ source })` starts signing in to Twitch. The daemon opens the sign-in page itself and returns its URL in case that fails. Watch the feed for the source's status to become `ok`.
 - `AddChannel` and `RemoveChannel` change `channels.yml`.
 - `QueueAdd({ url, title })` saves a URL to watch later and returns the saved item.
 - `MarkWatched({ id })` hides a YouTube upload or removes a saved item.

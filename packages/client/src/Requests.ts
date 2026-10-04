@@ -42,3 +42,16 @@ export class ItemNotFound extends Schema.TaggedError<ItemNotFound>()(
   "ItemNotFound",
   { id: Schema.String },
 ) {}
+
+export const SignInRequest = Schema.Struct({
+  source: Source,
+});
+
+export type SignInRequest = typeof SignInRequest.Type;
+
+// The daemon opens this page itself. Clients show it in case that fails.
+export const SignInResult = Schema.Struct({
+  url: Schema.String,
+});
+
+export type SignInResult = typeof SignInResult.Type;

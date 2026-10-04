@@ -73,6 +73,9 @@ export interface FeedStoreService {
     status: SourceStatus,
     items: ReadonlyArray<FeedItem>,
   ) => Effect.Effect<ReadonlyArray<FeedItem>>;
+  // Replaces the source's status and keeps its items, such as after a
+  // failed check.
+  readonly setStatus: (status: SourceStatus) => Effect.Effect<void>;
 }
 
 export class FeedStore extends Context.Service<FeedStore, FeedStoreService>()(
@@ -100,6 +103,14 @@ export class FeedStore extends Context.Service<FeedStore, FeedStoreService>()(
               replaceSource(feed, status, items),
             ];
           }).pipe(Effect.withSpan("FeedStore.setSource")),
+        setStatus: (status) =>
+          SubscriptionRef.update(ref, (feed) =>
+            replaceSource(
+              feed,
+              status,
+              Arr.filter(feed.items, isFrom(status.source)),
+            ),
+          ).pipe(Effect.withSpan("FeedStore.setStatus")),
       });
     }),
   );

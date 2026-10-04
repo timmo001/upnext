@@ -4,6 +4,8 @@ import {
   Cause,
   Console,
   Data,
+  DateTime,
+  Duration,
   Effect,
   Layer,
   Logger,
@@ -266,6 +268,59 @@ const queue = Command.make("queue").pipe(
   ]),
 );
 
+const signInTimeout = Duration.minutes(5);
+
+const isSignedIn =
+  (source: Source, since: DateTime.Utc) =>
+  ({ sources }: Feed) =>
+    Arr.some(
+      sources,
+      (status) =>
+        status.source === source &&
+        status.state === "ok" &&
+        Option.exists(Option.fromUndefinedOr(status.checkedAt), (at) =>
+          DateTime.isGreaterThan(at, since),
+        ),
+    );
+
+const auth = Command.make(
+  "auth",
+  {
+    source: Argument.Literals("source", ["twitch"] as const).pipe(
+      Argument.withDescription("The source to sign in to: twitch"),
+    ),
+  },
+  ({ source }) =>
+    withDaemon(
+      Effect.gen(function* () {
+        const client = yield* UpnextClient;
+        const since = yield* DateTime.now;
+        const { url } = yield* client.SignIn({ source });
+
+        yield* Console.error(
+          `Sign in from the browser. If it didn't open, go to:\n${url}`,
+        );
+
+        const done = yield* client.WatchFeed().pipe(
+          Stream.filter(isSignedIn(source, since)),
+          Stream.runHead,
+          Effect.timeoutOrElse({
+            duration: signInTimeout,
+            orElse: () => Effect.succeedNone,
+          }),
+        );
+
+        if (Option.isNone(done)) {
+          return yield* new CommandError({
+            message: "Sign-in timed out. Run the command again to retry.",
+          });
+        }
+
+        yield* Console.error("Signed in.");
+      }),
+    ),
+).pipe(Command.withDescription("Sign in to a source that needs it"));
+
 const watched = Command.make(
   "watched",
   {
@@ -311,6 +366,7 @@ upnext.pipe(
     feed,
     watch,
     recheck,
+    auth,
     channel,
     queue,
     watched,
