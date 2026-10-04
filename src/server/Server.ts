@@ -88,12 +88,16 @@ const Handlers = UpnextRpcs.toLayer(
             return noChannels(source);
         }
       },
-      AddChannel: ({ source, name, open }) => {
+      AddChannel: ({ source, name, open, notify }) => {
         switch (source) {
           case "twitch":
             return twitch.addChannel(name, Option.fromUndefinedOr(open));
           case "youtube":
-            return youtube.addChannel(name, Option.fromUndefinedOr(open));
+            return youtube.addChannel(
+              name,
+              Option.fromUndefinedOr(open),
+              notify ?? {},
+            );
           case "link":
             return noChannels(source);
         }

@@ -10,11 +10,21 @@ export const RecheckRequest = Schema.Struct({
 
 export type RecheckRequest = typeof RecheckRequest.Type;
 
-// A Twitch login or a YouTube channel ID.
+// Which YouTube channel notifications to send. A setting left out keeps the
+// channel's current value, or the default for a new channel.
+export const ChannelNotify = Schema.Struct({
+  live: Schema.optional(Schema.Boolean),
+  uploads: Schema.optional(Schema.Boolean),
+});
+
+export type ChannelNotify = typeof ChannelNotify.Type;
+
+// A Twitch login or a YouTube channel ID. Twitch ignores `notify`.
 export const ChannelRequest = Schema.Struct({
   source: Source,
   name: Schema.String,
   open: Schema.optional(Schema.Boolean),
+  notify: Schema.optional(ChannelNotify),
 });
 
 export type ChannelRequest = typeof ChannelRequest.Type;

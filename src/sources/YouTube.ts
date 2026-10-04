@@ -44,6 +44,7 @@ import {
 } from "@timmo001/effect-youtube";
 import {
   type ChannelCandidate,
+  type ChannelNotify,
   type FeedItem,
   SourceError,
   type SourceStatus,
@@ -127,6 +128,7 @@ export interface YouTubeSourceService {
   readonly addChannel: (
     id: string,
     open: Option.Option<boolean>,
+    notify: ChannelNotify,
   ) => Effect.Effect<void, SourceError>;
   readonly removeChannel: (id: string) => Effect.Effect<void, SourceError>;
   // The watch-later playlist as saved items, then after each change. Empty
@@ -349,7 +351,8 @@ export class YouTubeSource extends Context.Service<
           const trackedChannels = HashMap.fromIterable(
             Arr.map(
               channels,
-              ({ id, open }, position) => [id, { open, position }] as const,
+              ({ id, open, notify }, position) =>
+                [id, { open, notify, position }] as const,
             ),
           );
 
@@ -548,16 +551,26 @@ export class YouTubeSource extends Context.Service<
 
           const isLive = ({ item }: FeedItem) => item.kind === "live";
 
-          // Only channels in channels.yml are announced. At startup a week of
-          // uploads is new, so only live streams are announced, and only when
-          // notify_on_startup is set.
+          // Only channels in channels.yml are announced, for the kinds their
+          // notify settings ask for.
+          const wanted = ({ item }: FeedItem) =>
+            Option.exists(
+              HashMap.get(trackedChannels, item.channel?.id ?? ""),
+              ({ notify }) =>
+                item.kind === "live"
+                  ? notify.live
+                  : item.kind === "upload" && notify.uploads,
+            );
+
+          // At startup a week of uploads is new, so only live streams are
+          // announced, and only when notify_on_startup is set.
           const toAnnounce = Arr.filter(
             startup
               ? settings.notifyOnStartup
                 ? Arr.filter(fresh, isLive)
                 : []
-              : Arr.filter(fresh, ({ item }) => item.kind !== "upcoming"),
-            ({ tracked }) => tracked,
+              : fresh,
+            wanted,
           );
 
           const toOpen = Arr.filter(
@@ -739,6 +752,7 @@ export class YouTubeSource extends Context.Service<
       const addChannel = Effect.fn("YouTubeSource.addChannel")(function* (
         value: string,
         open: Option.Option<boolean>,
+        notify: ChannelNotify,
       ) {
         const id = channelIdFrom(value);
 
@@ -776,6 +790,10 @@ export class YouTubeSource extends Context.Service<
                     Arr.append(channels.youtube, {
                       id,
                       open: Option.getOrElse(open, () => false),
+                      notify: {
+                        live: notify.live ?? true,
+                        uploads: notify.uploads ?? false,
+                      },
                     }),
                   onSome: (index) =>
                     Arr.map(channels.youtube, (channel, at) =>
@@ -783,6 +801,10 @@ export class YouTubeSource extends Context.Service<
                         ? {
                             ...channel,
                             open: Option.getOrElse(open, () => channel.open),
+                            notify: {
+                              live: notify.live ?? channel.notify.live,
+                              uploads: notify.uploads ?? channel.notify.uploads,
+                            },
                           }
                         : channel,
                     ),

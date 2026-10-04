@@ -129,6 +129,13 @@ const TwitchChannel = Schema.Struct({
 const YouTubeChannel = Schema.Struct({
   id: Schema.String,
   open: withDefault(Schema.Boolean, false),
+  notify: withDefault(
+    Schema.Struct({
+      live: withDefault(Schema.Boolean, true),
+      uploads: withDefault(Schema.Boolean, false),
+    }),
+    {},
+  ),
 });
 
 export const ChannelsFile = Schema.Struct({
