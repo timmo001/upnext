@@ -355,32 +355,34 @@ export class YouTubeSource extends Context.Service<
             ),
           );
 
-        const channels = yield* config.channels.pipe(
-          Effect.mapError(toSourceError),
-        );
-
-        const youtube = Option.match(
-          Arr.findFirstIndex(channels.youtube, (channel) => channel.id === id),
-          {
-            onNone: () =>
-              Arr.append(channels.youtube, {
-                id,
-                open: Option.getOrElse(open, () => false),
-              }),
-            onSome: (index) =>
-              Arr.map(channels.youtube, (channel, at) =>
-                at === index
-                  ? {
-                      ...channel,
-                      open: Option.getOrElse(open, () => channel.open),
-                    }
-                  : channel,
-              ),
-          },
-        );
-
         yield* config
-          .saveChannels({ ...channels, youtube })
+          .updateChannels((channels) =>
+            Effect.succeed({
+              ...channels,
+              youtube: Option.match(
+                Arr.findFirstIndex(
+                  channels.youtube,
+                  (channel) => channel.id === id,
+                ),
+                {
+                  onNone: () =>
+                    Arr.append(channels.youtube, {
+                      id,
+                      open: Option.getOrElse(open, () => false),
+                    }),
+                  onSome: (index) =>
+                    Arr.map(channels.youtube, (channel, at) =>
+                      at === index
+                        ? {
+                            ...channel,
+                            open: Option.getOrElse(open, () => channel.open),
+                          }
+                        : channel,
+                    ),
+                },
+              ),
+            }),
+          )
           .pipe(Effect.mapError(toSourceError));
 
         yield* requestCheck;
@@ -391,21 +393,17 @@ export class YouTubeSource extends Context.Service<
       ) {
         const id = channelIdFrom(value);
 
-        const channels = yield* config.channels.pipe(
-          Effect.mapError(toSourceError),
-        );
-
-        const youtube = Arr.filter(
-          channels.youtube,
-          (channel) => channel.id !== id,
-        );
-
-        if (youtube.length === channels.youtube.length) {
-          return yield* youtubeError(`${id} isn't in channels.yml`);
-        }
-
         yield* config
-          .saveChannels({ ...channels, youtube })
+          .updateChannels((channels) => {
+            const youtube = Arr.filter(
+              channels.youtube,
+              (channel) => channel.id !== id,
+            );
+
+            return youtube.length === channels.youtube.length
+              ? Effect.fail(youtubeError(`${id} isn't in channels.yml`))
+              : Effect.succeed({ ...channels, youtube });
+          })
           .pipe(Effect.mapError(toSourceError));
 
         yield* requestCheck;

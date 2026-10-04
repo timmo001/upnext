@@ -549,35 +549,34 @@ export class TwitchSource extends Context.Service<
             ),
         });
 
-        const channels = yield* config.channels.pipe(
-          Effect.mapError(toSourceError),
-        );
-
-        const twitch = Option.match(
-          Arr.findFirstIndex(
-            channels.twitch,
-            (channel) => loginKey(channel.name) === login,
-          ),
-          {
-            onNone: () =>
-              Arr.append(channels.twitch, {
-                name: login,
-                open: Option.getOrElse(open, () => false),
-              }),
-            onSome: (index) =>
-              Arr.map(channels.twitch, (channel, at) =>
-                at === index
-                  ? {
-                      ...channel,
-                      open: Option.getOrElse(open, () => channel.open),
-                    }
-                  : channel,
-              ),
-          },
-        );
-
         yield* config
-          .saveChannels({ ...channels, twitch })
+          .updateChannels((channels) =>
+            Effect.succeed({
+              ...channels,
+              twitch: Option.match(
+                Arr.findFirstIndex(
+                  channels.twitch,
+                  (channel) => loginKey(channel.name) === login,
+                ),
+                {
+                  onNone: () =>
+                    Arr.append(channels.twitch, {
+                      name: login,
+                      open: Option.getOrElse(open, () => false),
+                    }),
+                  onSome: (index) =>
+                    Arr.map(channels.twitch, (channel, at) =>
+                      at === index
+                        ? {
+                            ...channel,
+                            open: Option.getOrElse(open, () => channel.open),
+                          }
+                        : channel,
+                    ),
+                },
+              ),
+            }),
+          )
           .pipe(Effect.mapError(toSourceError));
 
         yield* requestRestart;
@@ -586,21 +585,17 @@ export class TwitchSource extends Context.Service<
       const removeChannel = Effect.fn("TwitchSource.removeChannel")(function* (
         name: string,
       ) {
-        const channels = yield* config.channels.pipe(
-          Effect.mapError(toSourceError),
-        );
-
-        const twitch = Arr.filter(
-          channels.twitch,
-          (channel) => loginKey(channel.name) !== loginKey(name),
-        );
-
-        if (twitch.length === channels.twitch.length) {
-          return yield* twitchError(`${name} isn't in channels.yml`);
-        }
-
         yield* config
-          .saveChannels({ ...channels, twitch })
+          .updateChannels((channels) => {
+            const twitch = Arr.filter(
+              channels.twitch,
+              (channel) => loginKey(channel.name) !== loginKey(name),
+            );
+
+            return twitch.length === channels.twitch.length
+              ? Effect.fail(twitchError(`${name} isn't in channels.yml`))
+              : Effect.succeed({ ...channels, twitch });
+          })
           .pipe(Effect.mapError(toSourceError));
 
         yield* requestRestart;

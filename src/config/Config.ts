@@ -11,6 +11,7 @@ import {
   Record,
   Redacted,
   Schema,
+  Semaphore,
   String as Str,
 } from "effect";
 
@@ -237,9 +238,11 @@ export interface UpnextConfigService {
   readonly paths: Paths;
   readonly settings: Effect.Effect<Settings, ConfigError>;
   readonly channels: Effect.Effect<ChannelsFile, ConfigError>;
-  readonly saveChannels: (
-    channels: ChannelsFile,
-  ) => Effect.Effect<void, ConfigError>;
+  // Reads, changes and writes channels.yml one change at a time, so changes
+  // made together don't overwrite each other.
+  readonly updateChannels: <E>(
+    update: (channels: ChannelsFile) => Effect.Effect<ChannelsFile, E>,
+  ) => Effect.Effect<void, ConfigError | E>;
 }
 
 export class UpnextConfig extends Context.Service<
@@ -282,18 +285,28 @@ export class UpnextConfig extends Context.Service<
         provide,
       );
 
-      const saveChannels = Effect.fn("UpnextConfig.saveChannels")(
-        function* (value: ChannelsFile) {
-          yield* writeYaml(paths.channelsFile, ChannelsFile, value);
-        },
-        Effect.mapError(
-          (cause) =>
-            new ConfigError({ message: `save channels: ${cause.message}` }),
-        ),
-        provide,
-      );
+      const saving = yield* Semaphore.make(1);
 
-      return UpnextConfig.of({ paths, settings, channels, saveChannels });
+      const updateChannels = <E>(
+        update: (value: ChannelsFile) => Effect.Effect<ChannelsFile, E>,
+      ) =>
+        channels.pipe(
+          Effect.flatMap(update),
+          Effect.flatMap((value) =>
+            writeYaml(paths.channelsFile, ChannelsFile, value).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new ConfigError({
+                    message: `save channels: ${cause.message}`,
+                  }),
+              ),
+              provide,
+            ),
+          ),
+          Semaphore.withPermit(saving),
+        );
+
+      return UpnextConfig.of({ paths, settings, channels, updateChannels });
     }),
   );
 }
