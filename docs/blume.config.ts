@@ -33,6 +33,7 @@ export default defineConfig({
       "/install",
       "/configuration",
       "/running",
+      "/omarchy",
       "/libraries",
       {
         label: "Commands",
