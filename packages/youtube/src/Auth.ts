@@ -1,9 +1,21 @@
-import { DateTime, Duration, Effect, Option, Redacted, Schema } from "effect";
+import {
+  Array as Arr,
+  DateTime,
+  Duration,
+  Effect,
+  Option,
+  Redacted,
+  Schema,
+  String as Str,
+} from "effect";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 import { YouTubeAuthError, YouTubeError } from "./YouTubeError.js";
 
-// Reading subscriptions is the only access upnext needs.
+// Enough to read subscriptions and playlists.
 export const requiredScope = "https://www.googleapis.com/auth/youtube.readonly";
+
+// Also lets the app add to and remove from playlists.
+export const manageScope = "https://www.googleapis.com/auth/youtube";
 
 const authorizeEndpoint = "https://accounts.google.com/o/oauth2/v2/auth";
 
@@ -19,23 +31,29 @@ export interface GoogleTokens {
   readonly accessToken: Redacted.Redacted;
   readonly refreshToken: Option.Option<Redacted.Redacted>;
   readonly expiresAt: DateTime.Utc;
+  // What the person allowed, which can be less than was asked for. None when
+  // Google didn't say.
+  readonly scopes: Option.Option<ReadonlyArray<string>>;
 }
 
 const TokenResponse = Schema.Struct({
   access_token: Schema.String,
   refresh_token: Schema.optional(Schema.String),
   expires_in: Schema.Finite,
+  scope: Schema.optional(Schema.String),
 });
 
 const requestFailed = (context: string) => (cause: { message: string }) =>
   new YouTubeError({ message: `${context}: ${cause.message}` });
 
 // The page to send someone to so they can grant upnext access. Asks for
-// consent each time, so Google always returns a refresh token.
+// consent each time, so Google always returns a refresh token. The scope
+// defaults to read-only.
 export const authorizeUrl = (options: {
   readonly clientId: string;
   readonly redirectUri: string;
   readonly state: string;
+  readonly scope?: string;
 }) => {
   const url = new URL(authorizeEndpoint);
 
@@ -43,7 +61,7 @@ export const authorizeUrl = (options: {
     response_type: "code",
     client_id: options.clientId,
     redirect_uri: options.redirectUri,
-    scope: requiredScope,
+    scope: options.scope ?? requiredScope,
     state: options.state,
     access_type: "offline",
     prompt: "consent",
@@ -99,6 +117,9 @@ const requestTokens = Effect.fn("YouTube.requestTokens")(function* (
       () => previousRefreshToken,
     ),
     expiresAt: DateTime.addDuration(now, Duration.seconds(body.expires_in)),
+    scopes: Option.map(Option.fromUndefinedOr(body.scope), (scope) =>
+      Arr.filter(Str.split(scope, " "), Str.isNonEmpty),
+    ),
   } satisfies GoogleTokens;
 });
 

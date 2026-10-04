@@ -10,7 +10,7 @@ import {
 } from "effect";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 import { XMLParser } from "fast-xml-parser";
-import { type FeedEntry, VideoDetails } from "./Media.js";
+import { type FeedEntry, type PlaylistEntry, VideoDetails } from "./Media.js";
 import { YouTubeAuthError, YouTubeError } from "./YouTubeError.js";
 
 const feedEndpoint = "https://www.youtube.com/feeds/videos.xml";
@@ -19,6 +19,9 @@ const videosEndpoint = "https://www.googleapis.com/youtube/v3/videos";
 
 const subscriptionsEndpoint =
   "https://www.googleapis.com/youtube/v3/subscriptions";
+
+const playlistItemsEndpoint =
+  "https://www.googleapis.com/youtube/v3/playlistItems";
 
 const oembedEndpoint = "https://www.youtube.com/oembed";
 
@@ -73,8 +76,55 @@ const SubscriptionsResponse = Schema.Struct({
 });
 
 const ApiErrorBody = Schema.Struct({
-  error: Schema.Struct({ message: Schema.String }),
+  error: Schema.Struct({
+    message: Schema.String,
+    errors: Schema.optional(
+      Schema.Array(Schema.Struct({ reason: Schema.optional(Schema.String) })),
+    ),
+  }),
 });
+
+const PlaylistItemResource = Schema.Struct({
+  id: Schema.String,
+  snippet: Schema.Struct({
+    title: Schema.String,
+    // When the video was added to the playlist.
+    publishedAt: Schema.DateTimeUtcFromString,
+    videoOwnerChannelId: Schema.optional(Schema.String),
+    videoOwnerChannelTitle: Schema.optional(Schema.String),
+    resourceId: Schema.Struct({ videoId: Schema.optional(Schema.String) }),
+  }),
+});
+
+const PlaylistItemsResponse = Schema.Struct({
+  items: Schema.Array(PlaylistItemResource),
+  nextPageToken: Schema.optional(Schema.String),
+});
+
+const toPlaylistEntry = ({
+  id,
+  snippet,
+}: typeof PlaylistItemResource.Type): Option.Option<PlaylistEntry> =>
+  Option.map(Option.fromUndefinedOr(snippet.resourceId.videoId), (videoId) => {
+    const entry: PlaylistEntry = {
+      itemId: id,
+      videoId,
+      title: snippet.title,
+      addedAt: snippet.publishedAt,
+    };
+
+    if (snippet.videoOwnerChannelId === undefined) {
+      return entry;
+    }
+
+    return {
+      ...entry,
+      channel: {
+        id: snippet.videoOwnerChannelId,
+        name: snippet.videoOwnerChannelTitle ?? snippet.videoOwnerChannelId,
+      },
+    };
+  });
 
 export const OEmbed = Schema.Struct({
   title: Schema.String,
@@ -111,6 +161,25 @@ export interface YouTubeClientService {
     ReadonlyArray<Subscription>,
     YouTubeError | YouTubeAuthError
   >;
+  // Every video in a playlist, in playlist order, leaving out deleted and
+  // private ones. Needs a sign-in for a private playlist.
+  readonly playlistItems: (
+    playlistId: string,
+  ) => Effect.Effect<
+    ReadonlyArray<PlaylistEntry>,
+    YouTubeError | YouTubeAuthError
+  >;
+  // Adds a video to the end of a playlist. Needs a sign-in that allows
+  // changing playlists.
+  readonly addToPlaylist: (
+    playlistId: string,
+    videoId: string,
+  ) => Effect.Effect<PlaylistEntry, YouTubeError | YouTubeAuthError>;
+  // Removes an entry, by its `itemId`, from its playlist. Needs a sign-in
+  // that allows changing playlists.
+  readonly removeFromPlaylist: (
+    itemId: string,
+  ) => Effect.Effect<void, YouTubeError | YouTubeAuthError>;
   readonly oembed: (url: string) => Effect.Effect<OEmbed, YouTubeError>;
 }
 
@@ -124,17 +193,51 @@ const checkStatus = (
   response.status >= 200 && response.status < 300
     ? Effect.succeed(response)
     : HttpClientResponse.schemaBodyJson(ApiErrorBody)(response).pipe(
-        Effect.map(({ error }) => `: ${error.message}`),
-        Effect.orElseSucceed(() => ""),
-        Effect.flatMap((reason) =>
+        Effect.map(({ error }) => ({
+          detail: `: ${error.message}`,
+          reason: Arr.findFirst(error.errors ?? [], ({ reason }) =>
+            Option.fromUndefinedOr(reason),
+          ),
+        })),
+        Effect.orElseSucceed(() => ({
+          detail: "",
+          reason: Option.none<string>(),
+        })),
+        Effect.flatMap(({ detail, reason }) =>
           Effect.fail(
             new YouTubeError({
-              message: `${context} failed with status ${response.status}${reason}`,
+              message: `${context} failed with status ${response.status}${detail}`,
               status: response.status,
+              ...Option.match(reason, {
+                onNone: () => ({}),
+                onSome: (value) => ({ reason: value }),
+              }),
             }),
           ),
         ),
       );
+
+// A rejected sign-in, or one that doesn't allow what was asked, needs
+// signing in again.
+const signInFailures = <A, R>(
+  effect: Effect.Effect<A, YouTubeError, R>,
+): Effect.Effect<A, YouTubeError | YouTubeAuthError, R> =>
+  effect.pipe(
+    Effect.catchIf(
+      (error) =>
+        error.status === 401 ||
+        (error.status === 403 && error.reason === "insufficientPermissions"),
+      (error) =>
+        Effect.fail(
+          new YouTubeAuthError({
+            message:
+              error.status === 401
+                ? "Google rejected the sign-in"
+                : "The Google sign-in doesn't allow changing playlists",
+          }),
+        ),
+    ),
+  );
 
 export const make = Effect.fn("YouTubeClient.make")(function* (
   options: YouTubeClientOptions,
@@ -263,13 +366,7 @@ export const make = Effect.fn("YouTubeClient.make")(function* (
         bearer(token),
       ),
     ).pipe(
-      Effect.catchIf(
-        (error) => error.status === 401,
-        () =>
-          Effect.fail(
-            new YouTubeAuthError({ message: "Google rejected the sign-in" }),
-          ),
-      ),
+      signInFailures,
       Effect.flatMap((response) =>
         HttpClientResponse.schemaBodyJson(SubscriptionsResponse)(response).pipe(
           Effect.mapError(failed("read subscriptions")),
@@ -301,6 +398,117 @@ export const make = Effect.fn("YouTubeClient.make")(function* (
     onSome: (token) => subscriptionsPage(token, Option.none()),
   }).pipe(Effect.withSpan("YouTubeClient.subscriptions"));
 
+  const withSignIn = <A>(
+    action: string,
+    use: (
+      token: Redacted.Redacted,
+    ) => Effect.Effect<A, YouTubeError | YouTubeAuthError>,
+  ) =>
+    Option.match(accessToken, {
+      onNone: () =>
+        Effect.fail(
+          new YouTubeAuthError({ message: `${action} needs a sign-in` }),
+        ),
+      onSome: use,
+    });
+
+  const playlistPage = (
+    token: Redacted.Redacted,
+    playlistId: string,
+    pageToken: Option.Option<string>,
+  ): Effect.Effect<
+    ReadonlyArray<PlaylistEntry>,
+    YouTubeError | YouTubeAuthError
+  > =>
+    fetch(
+      "read the playlist",
+      HttpClientRequest.get(playlistItemsEndpoint).pipe(
+        HttpClientRequest.setUrlParams({
+          part: "snippet",
+          playlistId,
+          maxResults: String(maxPerRequest),
+          ...Option.match(pageToken, {
+            onNone: () => ({}),
+            onSome: (value) => ({ pageToken: value }),
+          }),
+        }),
+        bearer(token),
+      ),
+    ).pipe(
+      signInFailures,
+      Effect.flatMap((response) =>
+        HttpClientResponse.schemaBodyJson(PlaylistItemsResponse)(response).pipe(
+          Effect.mapError(failed("read the playlist")),
+        ),
+      ),
+      Effect.flatMap(({ items, nextPageToken }) => {
+        // Deleted and private videos have no channel.
+        const page = Arr.filter(
+          Arr.getSomes(Arr.map(items, toPlaylistEntry)),
+          ({ channel }) => channel !== undefined,
+        );
+
+        return Option.match(Option.fromUndefinedOr(nextPageToken), {
+          onNone: () => Effect.succeed(page),
+          onSome: (next) =>
+            Effect.map(
+              playlistPage(token, playlistId, Option.some(next)),
+              (rest) => Arr.appendAll(page, rest),
+            ),
+        });
+      }),
+    );
+
+  const playlistItems = (playlistId: string) =>
+    withSignIn("reading a playlist", (token) =>
+      playlistPage(token, playlistId, Option.none()),
+    ).pipe(Effect.withSpan("YouTubeClient.playlistItems"));
+
+  const addToPlaylist = (playlistId: string, videoId: string) =>
+    withSignIn("adding to a playlist", (token) =>
+      fetch(
+        "add to the playlist",
+        HttpClientRequest.post(playlistItemsEndpoint).pipe(
+          HttpClientRequest.setUrlParam("part", "snippet"),
+          HttpClientRequest.bodyJsonUnsafe({
+            snippet: {
+              playlistId,
+              resourceId: { kind: "youtube#video", videoId },
+            },
+          }),
+          bearer(token),
+        ),
+      ).pipe(
+        signInFailures,
+        Effect.flatMap((response) =>
+          HttpClientResponse.schemaBodyJson(PlaylistItemResource)(
+            response,
+          ).pipe(Effect.mapError(failed("read the added playlist item"))),
+        ),
+        Effect.flatMap((item) =>
+          Effect.fromOption(toPlaylistEntry(item)).pipe(
+            Effect.mapError(
+              () =>
+                new YouTubeError({
+                  message: `YouTube didn't add ${videoId} as a video`,
+                }),
+            ),
+          ),
+        ),
+      ),
+    ).pipe(Effect.withSpan("YouTubeClient.addToPlaylist"));
+
+  const removeFromPlaylist = (itemId: string) =>
+    withSignIn("removing from a playlist", (token) =>
+      fetch(
+        "remove from the playlist",
+        HttpClientRequest.delete(playlistItemsEndpoint).pipe(
+          HttpClientRequest.setUrlParam("id", itemId),
+          bearer(token),
+        ),
+      ).pipe(signInFailures, Effect.asVoid),
+    ).pipe(Effect.withSpan("YouTubeClient.removeFromPlaylist"));
+
   const oembed = (url: string) =>
     fetch(
       "look up the video",
@@ -321,6 +529,9 @@ export const make = Effect.fn("YouTubeClient.make")(function* (
     channelFeed,
     videos,
     subscriptions,
+    playlistItems,
+    addToPlaylist,
+    removeFromPlaylist,
     oembed,
   } satisfies YouTubeClientService;
 });

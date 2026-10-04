@@ -37,15 +37,17 @@ const uploads = Effect.gen(function* () {
 - `channelFeed(channelId)`: the latest 15 uploads from a channel's RSS feed. It takes the channel ID that starts with `UC`, not a handle.
 - `videos(videoIds)`: titles, live state, stream times and viewer counts, 50 videos per request. The key or token is sent as a header, so it never appears in a URL.
 - `subscriptions`: every channel the signed-in account subscribes to, 50 per request.
+- `playlistItems(playlistId)`: every video in a playlist, 50 per request, leaving out deleted and private ones. Needs the access token.
+- `addToPlaylist(playlistId, videoId)` and `removeFromPlaylist(itemId)`: change a playlist. They need a sign-in with `manageScope`. `removeFromPlaylist` takes the entry's `itemId`, not the video ID.
 - `oembed(url)`: the title, channel and thumbnail for any video URL, without a key.
 
-`toMediaItem(entry, details)` turns a feed entry into a `MediaItem`. With details from `videos`, live and upcoming streams get the `live` or `upcoming` kind and their start time. `videoIdFromUrl` reads the video ID from watch, `youtu.be`, shorts, live and embed URLs.
+`toMediaItem(entry, details)` turns a feed entry into a `MediaItem`. With details from `videos`, live and upcoming streams get the `live` or `upcoming` kind and their start time. `toSavedItem(entry)` turns a playlist entry into a `saved` item. `videoIdFromUrl` reads the video ID from watch, `youtu.be`, shorts, live and embed URLs, and `playlistIdFrom` reads a playlist ID from an ID or a URL with a `list` parameter.
 
 ## Google sign-in
 
-`authorizeUrl`, `exchangeCode` and `refreshTokens` handle a Google sign-in with the read-only YouTube scope. They take the ID and secret of a Google OAuth client of the Desktop app type, which can redirect to any loopback port. `authorizeUrl` asks for offline access, so `exchangeCode` returns a refresh token.
+`authorizeUrl`, `exchangeCode` and `refreshTokens` handle a Google sign-in. `authorizeUrl` asks for the read-only YouTube scope, `requiredScope`, unless you pass `scope`, such as `manageScope` to change playlists. They take the ID and secret of a Google OAuth client of the Desktop app type, which can redirect to any loopback port. `authorizeUrl` asks for offline access, so `exchangeCode` returns a refresh token. The returned tokens include the scopes Google granted, when it says.
 
-Failures are a `YouTubeError`, with the HTTP status when there is one, or a `YouTubeAuthError` when Google rejects the sign-in or refresh token.
+Failures are a `YouTubeError`, with the HTTP status and the API's reason when there are them, or a `YouTubeAuthError` when Google rejects the sign-in or refresh token, or the sign-in doesn't allow changing playlists.
 
 ## Licence
 

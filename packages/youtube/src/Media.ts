@@ -12,6 +12,20 @@ export const FeedEntry = Schema.Struct({
 
 export type FeedEntry = typeof FeedEntry.Type;
 
+// One video in a playlist. `itemId` is the playlist entry's own ID, which
+// removing it takes. The channel can be missing straight after adding.
+export const PlaylistEntry = Schema.Struct({
+  itemId: Schema.String,
+  videoId: Schema.String,
+  title: Schema.String,
+  channel: Schema.optional(
+    Schema.Struct({ id: Schema.String, name: Schema.String }),
+  ),
+  addedAt: Schema.DateTimeUtc,
+});
+
+export type PlaylistEntry = typeof PlaylistEntry.Type;
+
 const OptionalTime = Schema.optional(Schema.DateTimeUtcFromString);
 
 // What videos.list says about a video, which the RSS feed doesn't.
@@ -81,6 +95,49 @@ export const videoIdFromUrl = (url: string): Option.Option<string> =>
 
     return Option.filter(candidate, (id) => videoIdPattern.test(id));
   });
+
+const playlistIdPattern = /^[\w-]+$/;
+
+// A playlist ID, or the ID in a playlist or watch URL's `list` parameter.
+export const playlistIdFrom = (value: string): Option.Option<string> => {
+  const trimmed = Str.trim(value);
+
+  return Option.filter(
+    Option.orElse(
+      Option.flatMap(Option.liftThrowable(() => new URL(trimmed))(), (url) =>
+        Option.fromNullishOr(url.searchParams.get("list")),
+      ),
+      () => Option.some(trimmed),
+    ),
+    (id) => playlistIdPattern.test(id),
+  );
+};
+
+// A playlist entry as a saved item, dated when it was added.
+export const toSavedItem = (entry: PlaylistEntry): MediaItem => {
+  const item: MediaItem = {
+    id: `youtube:${entry.videoId}`,
+    source: "youtube",
+    kind: "saved",
+    title: entry.title,
+    url: videoUrl(entry.videoId),
+    thumbnailUrl: thumbnailUrl(entry.videoId),
+    publishedAt: entry.addedAt,
+  };
+
+  if (entry.channel === undefined) {
+    return item;
+  }
+
+  return {
+    ...item,
+    channel: {
+      id: entry.channel.id,
+      name: entry.channel.name,
+      url: channelUrl(entry.channel.id),
+    },
+  };
+};
 
 const kindOf = (details: VideoDetails): MediaKind => {
   switch (details.snippet.liveBroadcastContent) {
