@@ -12,6 +12,7 @@ import {
   Option,
   Predicate,
   Schema,
+  Stdio,
   Stream,
 } from "effect";
 import { Argument, CliError, Command, Flag, Prompt } from "effect/cli";
@@ -80,6 +81,15 @@ const encodeFeedItem = Schema.encodeEffect(
   Schema.fromJsonString(Schema.toCodecJson(FeedItem)),
 );
 
+// Console.log drops anything past the pipe's buffer, which cut large feeds
+// short for the panel. The Stdio sink waits for the pipe to drain.
+const printLine = (line: string) =>
+  Effect.gen(function* () {
+    const stdio = yield* Stdio.Stdio;
+
+    yield* Stream.run(Stream.make(`${line}\n`), stdio.stdout());
+  });
+
 const itemLine = ({ item }: FeedItem) =>
   Arr.join(
     [
@@ -97,7 +107,7 @@ const itemLine = ({ item }: FeedItem) =>
 
 const printFeed = (feed: Feed, json: boolean) =>
   json
-    ? Effect.flatMap(encodeFeed(feed), Console.log)
+    ? Effect.flatMap(encodeFeed(feed), printLine)
     : Effect.gen(function* () {
         yield* Effect.forEach(
           Arr.filter(feed.sources, ({ state }) => state !== "ok"),
@@ -111,7 +121,7 @@ const printFeed = (feed: Feed, json: boolean) =>
         yield* Arr.match(feed.items, {
           onEmpty: () => Console.error("Nothing to watch"),
           onNonEmpty: (items) =>
-            Effect.forEach(items, (item) => Console.log(itemLine(item)), {
+            Effect.forEach(items, (item) => printLine(itemLine(item)), {
               discard: true,
             }),
         });
@@ -337,8 +347,8 @@ const queue = Command.make("queue").pipe(
             });
 
             yield* json
-              ? Effect.flatMap(encodeFeedItem(saved), Console.log)
-              : Console.log(itemLine(saved));
+              ? Effect.flatMap(encodeFeedItem(saved), printLine)
+              : printLine(itemLine(saved));
           }),
         ),
     ).pipe(Command.withDescription("Save a URL to watch later")),
