@@ -31,6 +31,7 @@ The old directory isn't changed, so you can go back to twitch-notifications if y
 | `twitch-notifications --status-json` | `upnext feed --json` |
 | `twitch-notifications --recheck` | `upnext recheck` |
 | `twitch-notifications-recheck --open` | `upnext recheck --open` |
+| Opens the browser to sign in again by itself | Notifies you, then `upnext auth twitch` |
 | `twitch-notifications-restart` | `systemctl --user restart upnext.service` |
 | `timmo.twitch` Omarchy plugin | `timmo.upnext` Omarchy plugin |
 | System tray icon | The Omarchy panel |

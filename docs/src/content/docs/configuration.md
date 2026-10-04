@@ -32,6 +32,21 @@ Every setting is optional.
 
 Values can use `$VAR` or `${VAR}` to read environment variables, so you can keep secrets out of the file.
 
+## Twitch
+
+upnext needs a Twitch application of your own:
+
+1. Register one in the [Twitch developer console](https://dev.twitch.tv/console/apps).
+2. Add `http://localhost:8080/oauth/callback` as an OAuth redirect URL.
+3. Put its client ID and secret in `config.yml` under `twitch`.
+4. Restart the daemon, then run `upnext auth twitch`.
+
+`upnext auth twitch` asks the daemon to open Twitch's sign-in page in your browser and waits until you've finished. The daemon listens on port 8080 only while you sign in. It keeps the tokens in `state.json` and refreshes them itself.
+
+If the tokens stop working, the Twitch status in the feed changes to `auth-required` and a notification asks you to sign in again. Clicking it runs `upnext auth twitch`.
+
+Live notifications are only for channels in `channels.yml`. Twitch's live events cover up to 10 of them, so those show up within seconds. The rest are checked every `poll_interval`. Another app using the same Twitch account's live events, such as twitch-notifications, can use up that allowance, and upnext then relies on polling until it's free.
+
 ## channels.yml
 
 ```yaml

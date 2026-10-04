@@ -13,6 +13,7 @@ Each command has its own page with its help, as `upnext <command> --help` prints
 | [`feed`](/commands/feed) | None |
 | [`watch`](/commands/watch) | None |
 | [`recheck`](/commands/recheck) | None |
+| [`auth`](/commands/auth) | None |
 | [`channel`](/commands/channel) | None |
 | [`queue`](/commands/queue) | None |
 | [`watched`](/commands/watched) | None |
@@ -41,6 +42,7 @@ SUBCOMMANDS
   feed       Print what's live, new and saved
   watch      Print the feed, then again after each change
   recheck    Check sources now instead of waiting
+  auth       Sign in to a source that needs it
   channel    Add or remove followed channels
   queue      Manage the watch-later queue
   watched    Hide a YouTube upload or remove a saved item

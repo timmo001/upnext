@@ -8,6 +8,7 @@ upnext is built from Effect v4 libraries, published to npm and JSR. They work un
 | Package | Use it to |
 | --- | --- |
 | [`@timmo001/effect-upnext`](https://github.com/timmo001/upnext/tree/main/packages/client) | Talk to a running daemon over its socket |
+| [`@timmo001/effect-twitch`](https://github.com/timmo001/upnext/tree/main/packages/twitch) | Sign in to Twitch, find live channels and turn them into `MediaItem`s, without the daemon |
 | [`@timmo001/effect-upnext-shared`](https://github.com/timmo001/upnext/tree/main/packages/shared) | Use the `MediaItem` schemas every source and client shares |
 
 The CLI is a client of the same RPCs that `effect-upnext` defines, so anything the CLI does, your app can do too.
@@ -57,6 +58,7 @@ main.pipe(Effect.provide(BunServices.layer), BunRuntime.runMain);
 | `GetFeed` | Returns each source's status and every item |
 | `WatchFeed` | Streams the whole feed, then again after each change |
 | `Recheck` | Checks every source, or one, now |
+| `SignIn` | Starts signing in to Twitch and returns the page the daemon opened |
 | `AddChannel`, `RemoveChannel` | Change `channels.yml` |
 | `QueueAdd` | Saves a URL to watch later |
 | `MarkWatched` | Hides a YouTube upload or removes a saved item |
