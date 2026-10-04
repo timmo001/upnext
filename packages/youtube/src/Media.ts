@@ -16,6 +16,7 @@ export type FeedEntry = typeof FeedEntry.Type;
 // removing it takes. The channel can be missing straight after adding.
 export const PlaylistEntry = Schema.Struct({
   itemId: Schema.String,
+  playlistId: Schema.String,
   videoId: Schema.String,
   title: Schema.String,
   channel: Schema.optional(
@@ -57,6 +58,9 @@ export const videoUrl = (videoId: string) =>
 
 export const channelUrl = (channelId: string) =>
   `https://www.youtube.com/channel/${channelId}`;
+
+export const playlistUrl = (playlistId: string) =>
+  `https://www.youtube.com/playlist?list=${playlistId}`;
 
 export const thumbnailUrl = (videoId: string) =>
   `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`;
@@ -113,14 +117,15 @@ export const playlistIdFrom = (value: string): Option.Option<string> => {
   );
 };
 
-// A playlist entry as a saved item, dated when it was added.
+// A playlist entry as a saved item, dated when it was added. Its URL plays
+// the video in the playlist, so the rest of the playlist follows it.
 export const toSavedItem = (entry: PlaylistEntry): MediaItem => {
   const item: MediaItem = {
     id: `youtube:${entry.videoId}`,
     source: "youtube",
     kind: "saved",
     title: entry.title,
-    url: videoUrl(entry.videoId),
+    url: `${videoUrl(entry.videoId)}&list=${entry.playlistId}`,
     thumbnailUrl: thumbnailUrl(entry.videoId),
     publishedAt: entry.addedAt,
   };

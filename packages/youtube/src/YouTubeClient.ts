@@ -23,6 +23,8 @@ const subscriptionsEndpoint =
 const playlistItemsEndpoint =
   "https://www.googleapis.com/youtube/v3/playlistItems";
 
+const playlistsEndpoint = "https://www.googleapis.com/youtube/v3/playlists";
+
 const oembedEndpoint = "https://www.youtube.com/oembed";
 
 // videos.list takes up to 50 IDs per call.
@@ -90,10 +92,17 @@ const PlaylistItemResource = Schema.Struct({
     title: Schema.String,
     // When the video was added to the playlist.
     publishedAt: Schema.DateTimeUtcFromString,
+    playlistId: Schema.String,
     videoOwnerChannelId: Schema.optional(Schema.String),
     videoOwnerChannelTitle: Schema.optional(Schema.String),
     resourceId: Schema.Struct({ videoId: Schema.optional(Schema.String) }),
   }),
+});
+
+const PlaylistsResponse = Schema.Struct({
+  items: Schema.Array(
+    Schema.Struct({ snippet: Schema.Struct({ title: Schema.String }) }),
+  ),
 });
 
 const PlaylistItemsResponse = Schema.Struct({
@@ -108,6 +117,7 @@ const toPlaylistEntry = ({
   Option.map(Option.fromUndefinedOr(snippet.resourceId.videoId), (videoId) => {
     const entry: PlaylistEntry = {
       itemId: id,
+      playlistId: snippet.playlistId,
       videoId,
       title: snippet.title,
       addedAt: snippet.publishedAt,
@@ -161,6 +171,11 @@ export interface YouTubeClientService {
     ReadonlyArray<Subscription>,
     YouTubeError | YouTubeAuthError
   >;
+  // A playlist's title, or None when there's no such playlist. Needs a
+  // sign-in for a private playlist.
+  readonly playlistTitle: (
+    playlistId: string,
+  ) => Effect.Effect<Option.Option<string>, YouTubeError | YouTubeAuthError>;
   // Every video in a playlist, in playlist order, leaving out deleted and
   // private ones. Needs a sign-in for a private playlist.
   readonly playlistItems: (
@@ -464,6 +479,27 @@ export const make = Effect.fn("YouTubeClient.make")(function* (
       playlistPage(token, playlistId, Option.none()),
     ).pipe(Effect.withSpan("YouTubeClient.playlistItems"));
 
+  const playlistTitle = (playlistId: string) =>
+    withSignIn("reading a playlist", (token) =>
+      fetch(
+        "read the playlist",
+        HttpClientRequest.get(playlistsEndpoint).pipe(
+          HttpClientRequest.setUrlParams({ part: "snippet", id: playlistId }),
+          bearer(token),
+        ),
+      ).pipe(
+        signInFailures,
+        Effect.flatMap((response) =>
+          HttpClientResponse.schemaBodyJson(PlaylistsResponse)(response).pipe(
+            Effect.mapError(failed("read the playlist")),
+          ),
+        ),
+        Effect.map(({ items }) =>
+          Option.map(Arr.head(items), ({ snippet }) => snippet.title),
+        ),
+      ),
+    ).pipe(Effect.withSpan("YouTubeClient.playlistTitle"));
+
   const addToPlaylist = (playlistId: string, videoId: string) =>
     withSignIn("adding to a playlist", (token) =>
       fetch(
@@ -529,6 +565,7 @@ export const make = Effect.fn("YouTubeClient.make")(function* (
     channelFeed,
     videos,
     subscriptions,
+    playlistTitle,
     playlistItems,
     addToPlaylist,
     removeFromPlaylist,

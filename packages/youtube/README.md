@@ -37,11 +37,12 @@ const uploads = Effect.gen(function* () {
 - `channelFeed(channelId)`: the latest 15 uploads from a channel's RSS feed. It takes the channel ID that starts with `UC`, not a handle.
 - `videos(videoIds)`: titles, live state, stream times and viewer counts, 50 videos per request. The key or token is sent as a header, so it never appears in a URL.
 - `subscriptions`: every channel the signed-in account subscribes to, 50 per request.
+- `playlistTitle(playlistId)`: a playlist's title, or none when there's no such playlist. Needs the access token for a private playlist.
 - `playlistItems(playlistId)`: every video in a playlist, 50 per request, leaving out deleted and private ones. Needs the access token.
 - `addToPlaylist(playlistId, videoId)` and `removeFromPlaylist(itemId)`: change a playlist. They need a sign-in with `manageScope`. `removeFromPlaylist` takes the entry's `itemId`, not the video ID.
 - `oembed(url)`: the title, channel and thumbnail for any video URL, without a key.
 
-`toMediaItem(entry, details)` turns a feed entry into a `MediaItem`. With details from `videos`, live and upcoming streams get the `live` or `upcoming` kind and their start time. `toSavedItem(entry)` turns a playlist entry into a `saved` item. `videoIdFromUrl` reads the video ID from watch, `youtu.be`, shorts, live and embed URLs, and `playlistIdFrom` reads a playlist ID from an ID or a URL with a `list` parameter.
+`toMediaItem(entry, details)` turns a feed entry into a `MediaItem`. With details from `videos`, live and upcoming streams get the `live` or `upcoming` kind and their start time. `toSavedItem(entry)` turns a playlist entry into a `saved` item whose URL plays the video in its playlist. `videoIdFromUrl` reads the video ID from watch, `youtu.be`, shorts, live and embed URLs, `playlistIdFrom` reads a playlist ID from an ID or a URL with a `list` parameter, and `playlistUrl` builds a playlist's URL.
 
 ## Google sign-in
 
