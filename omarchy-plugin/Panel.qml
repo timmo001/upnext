@@ -462,11 +462,12 @@ Panel {
     close()
   }
 
-  // What the item menu offers. Channels you don't track yet can be added.
+  // What the item menu offers. Channels you don't track yet can be added. A
+  // Twitch stream's URL is its channel's, so it gets no separate channel action.
   function itemActions(entry) {
     if (!entry) return []
     var actions = [{ id: "open", label: entry.item.kind === "live" ? "Watch" : "Open" }]
-    if (entry.item.channel && entry.item.channel.url)
+    if (entry.item.channel && entry.item.channel.url && entry.item.channel.url !== entry.item.url)
       actions.push({ id: "channel", label: "Open " + entry.item.channel.name })
     if (entry.tracked !== true && (entry.item.source === "twitch" || entry.item.source === "youtube"))
       actions.push({ id: "add", label: "Add " + entry.item.channel.name + " to your channels" })
