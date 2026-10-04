@@ -49,6 +49,7 @@ export default defineConfig({
         label: "Migrations",
         items: ["/from-twitch-notifications"],
       },
+      "/privacy",
     ],
   },
   theme: {

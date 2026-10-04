@@ -56,7 +56,13 @@ systemctl --user restart upnext.service
 2. Fill in **App information** with an app name, such as `Up Next`, and your email address.
 3. Under **Audience**, choose **External**.
 4. Add your email address as the contact, agree to the policy and select **Create**.
-5. Go to **Audience** and select **Publish app**, then **Confirm**.
+5. Go to **Branding**. Google needs a home page and a privacy policy before it publishes an app:
+   - **Application home page**: `https://upnext.timmo.dev`
+   - **Application privacy policy link**: `https://upnext.timmo.dev/privacy`
+   - **Authorised domains**: `timmo.dev`
+   - Leave the logo empty. Adding one means Google has to verify the app.
+6. Select **Save**.
+7. Go to **Audience** and select **Publish app**, then **Confirm**.
 
 Publishing matters. While an app is in testing, Google expires its sign-ins after 7 days, and you'd need to run `upnext auth youtube` every week. A published app that Google hasn't verified works for up to 100 people, which is plenty for your own use. Google warns you that it isn't verified when you sign in.
 
