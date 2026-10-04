@@ -56,7 +56,7 @@ With `youtube.api_key`, upnext also looks the videos up in the YouTube Data API,
 Add channels by ID, which starts with `UC`, or paste the channel's `/channel/` URL:
 
 ```bash
-upnext channel add youtube UCXuqSBlHAE6Xw-yeJA0Tunw
+upnext channel add youtube UCxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 A channel you've just added doesn't announce its existing uploads.
@@ -65,11 +65,11 @@ A channel you've just added doesn't announce its existing uploads.
 
 ```yaml
 twitch:
-  - name: alveussanctuary
+  - name: some_streamer
     open: true
-  - name: cinna
+  - name: another_streamer
 youtube:
-  - id: UCXuqSBlHAE6Xw-yeJA0Tunw
+  - id: UCxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 - `twitch`: Twitch logins. upnext also shows every channel you follow that's live, even if it isn't listed here.

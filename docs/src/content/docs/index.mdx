@@ -19,11 +19,11 @@ upnext watch --json
 Save any web address to the queue. YouTube videos get their title, channel and thumbnail looked up; other links show the title you give them, or the address.
 
 ```bash
-upnext queue add https://youtu.be/dQw4w9WgXcQ
+upnext queue add https://youtu.be/<video-id>
 upnext queue add https://example.com/talk --title "That talk"
 
 # Remove a saved item, or hide a YouTube upload, by the ID from feed --json
-upnext watched youtube:dQw4w9WgXcQ
+upnext watched youtube:<video-id>
 ```
 
 A saved video that's also one of a channel's recent uploads shows once, as the upload. Marking it watched removes both.

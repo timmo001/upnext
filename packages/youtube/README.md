@@ -25,7 +25,7 @@ import { FetchHttpClient } from "effect/http";
 
 const uploads = Effect.gen(function* () {
   const youtube = yield* YouTubeClient;
-  const entries = yield* youtube.channelFeed("UCXuqSBlHAE6Xw-yeJA0Tunw");
+  const entries = yield* youtube.channelFeed("UCxxxxxxxxxxxxxxxxxxxxxx");
 
   return entries.map((entry) => toMediaItem(entry, Option.none()));
 }).pipe(
