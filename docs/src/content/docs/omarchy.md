@@ -32,11 +32,11 @@ Counts of zero are left out. When nothing is live and there's nothing new, the w
 The panel shows the feed in sections:
 
 - **Live**: your channels from `channels.yml`, Twitch first, each in the order you listed them.
-- **Followed**: other channels you follow or subscribe to that are live, by viewers.
-- **Upcoming**: scheduled streams from your YouTube channels.
+- **Followed**: other channels you follow or subscribe to that are live, by viewers. Collapsed when none are live.
+- **Upcoming**: scheduled streams from your YouTube channels. Collapsed until you open it.
+- **Watch later**: links you've saved with `upnext queue add`. Collapsed when it's empty.
 - **New uploads**: the last 7 days of uploads from your YouTube channels.
 - **Other uploads**: uploads from your other YouTube subscriptions, once you've [signed in with Google](/setup/youtube#sign-in-with-google). Collapsed until you open it.
-- **Watch later**: links you've saved with `upnext queue add`.
 
 Every live row shows its viewer count and category.
 

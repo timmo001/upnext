@@ -43,9 +43,9 @@ Panel {
     { kind: "live", title: "LIVE", sources: ["twitch", "youtube"], empty: "No one you track is live" },
     { kind: "followed", title: "FOLLOWED", sources: ["twitch"], empty: "No one else you follow is live" },
     { kind: "upcoming", title: "UPCOMING", sources: ["youtube"], empty: "No upcoming streams" },
+    { kind: "saved", title: "WATCH LATER", sources: [], empty: "Nothing saved for later" },
     { kind: "upload", title: "NEW UPLOADS", sources: ["youtube"], empty: "All caught up" },
-    { kind: "other", title: "OTHER UPLOADS", sources: ["youtube"], empty: "All caught up" },
-    { kind: "saved", title: "WATCH LATER", sources: [], empty: "Nothing saved for later" }
+    { kind: "other", title: "OTHER UPLOADS", sources: ["youtube"], empty: "All caught up" }
   ]
   readonly property var defaultExpanded: ({ live: true, followed: true, upcoming: false, upload: true, other: false, saved: true })
   property var expanded: defaultExpanded
@@ -237,12 +237,16 @@ Panel {
     expanded = next
   }
 
-  // Followed starts collapsed when there's nothing in it.
+  // Followed and Watch later start collapsed when there's nothing in them.
   function openingExpanded() {
     var next = Object.assign({}, defaultExpanded)
-    next.followed = panelRows.some(function(entry) {
-      return entry.kind === "item" && entry.section === "followed"
-    })
+    var collapsible = ["followed", "saved"]
+    for (var i = 0; i < collapsible.length; i++) {
+      var kind = collapsible[i]
+      next[kind] = panelRows.some(function(entry) {
+        return entry.kind === "item" && entry.section === kind
+      })
+    }
     return next
   }
 
