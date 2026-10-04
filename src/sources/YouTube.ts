@@ -167,8 +167,11 @@ export class YouTubeSource extends Context.Service<
             ),
           );
 
-          const openByChannel = HashMap.fromIterable(
-            Arr.map(channels, ({ id, open }) => [id, open] as const),
+          const trackedChannels = HashMap.fromIterable(
+            Arr.map(
+              channels,
+              ({ id, open }, position) => [id, { open, position }] as const,
+            ),
           );
 
           const cutoff = DateTime.subtractDuration(now, uploadWindow);
@@ -180,14 +183,20 @@ export class YouTubeSource extends Context.Service<
               item.kind !== "upload" ||
               DateTime.isGreaterThanOrEqualTo(entry.publishedAt, cutoff);
 
+            const channel = HashMap.get(trackedChannels, entry.channelId);
+
             return recent
               ? Result.succeed<FeedItem>({
                   item,
                   tracked: true,
-                  autoOpen: Option.getOrElse(
-                    HashMap.get(openByChannel, entry.channelId),
-                    () => false,
-                  ),
+                  ...Option.match(channel, {
+                    onNone: () => ({}),
+                    onSome: ({ position }) => ({ position }),
+                  }),
+                  autoOpen: Option.match(channel, {
+                    onNone: () => false,
+                    onSome: ({ open }) => open,
+                  }),
                 })
               : Result.failVoid;
           });

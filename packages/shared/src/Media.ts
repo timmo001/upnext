@@ -38,6 +38,8 @@ export const MediaItem = Schema.Struct({
   category: Schema.optional(Schema.String),
   // When the stream started, the video was uploaded or the item was saved.
   publishedAt: Schema.optional(Schema.DateTimeUtc),
+  // How many people are watching a live stream.
+  viewers: Schema.optional(Schema.Finite),
 });
 
 export type MediaItem = typeof MediaItem.Type;

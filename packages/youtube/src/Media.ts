@@ -30,6 +30,8 @@ export const VideoDetails = Schema.Struct({
       actualStartTime: OptionalTime,
       scheduledStartTime: OptionalTime,
       actualEndTime: OptionalTime,
+      // Only while the stream is live. The API sends it as a string.
+      concurrentViewers: Schema.optional(Schema.FiniteFromString),
     }),
   ),
 });
@@ -133,5 +135,16 @@ export const toMediaItem = (
     },
     thumbnailUrl: thumbnailUrl(entry.videoId),
     publishedAt: Option.getOrElse(streamTime, () => entry.publishedAt),
+    ...Option.match(
+      Option.flatMap(stream, ({ concurrentViewers }) =>
+        kind === "live"
+          ? Option.fromUndefinedOr(concurrentViewers)
+          : Option.none(),
+      ),
+      {
+        onNone: () => ({}),
+        onSome: (viewers) => ({ viewers }),
+      },
+    ),
   };
 };

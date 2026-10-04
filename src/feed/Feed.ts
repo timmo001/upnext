@@ -20,16 +20,34 @@ const kindRank: Record<MediaKind, number> = {
   saved: 3,
 };
 
+const sourceRank: Record<FeedItem["item"]["source"], number> = {
+  twitch: 0,
+  youtube: 1,
+  link: 2,
+};
+
 const publishedMillis = ({ item }: FeedItem) =>
   Option.match(Option.fromUndefinedOr(item.publishedAt), {
     onNone: () => 0,
     onSome: DateTime.toEpochMillis,
   });
 
-const feedOrder: Order.Order<FeedItem> = Order.combine(
+const isLive = ({ item }: FeedItem) => item.kind === "live";
+
+// Orders live items only; every other pair compares equal here.
+const liveOrder = (rank: (feedItem: FeedItem) => number) =>
+  Order.mapInput(Order.Number, (feedItem: FeedItem) =>
+    isLive(feedItem) ? rank(feedItem) : 0,
+  );
+
+const feedOrder: Order.Order<FeedItem> = Order.combineAll([
   Order.mapInput(Order.Number, ({ item }: FeedItem) => kindRank[item.kind]),
+  liveOrder(({ tracked }) => (tracked ? 0 : 1)),
+  liveOrder(({ item, tracked }) => (tracked ? sourceRank[item.source] : 0)),
+  liveOrder(({ position, tracked }) => (tracked ? (position ?? 0) : 0)),
+  liveOrder(({ item, tracked }) => (tracked ? 0 : -(item.viewers ?? 0))),
   Order.mapInput(Order.flip(Order.Number), publishedMillis),
-);
+]);
 
 const sourceOrder = Order.mapInput(
   Order.String,

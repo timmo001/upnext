@@ -219,7 +219,11 @@ export class TwitchSource extends Context.Service<
             const channels = (yield* config.channels).twitch;
 
             const tracked = HashMap.fromIterable(
-              Arr.map(channels, ({ name, open }) => [loginKey(name), open]),
+              Arr.map(
+                channels,
+                ({ name, open }, position) =>
+                  [loginKey(name), { open, position }] as const,
+              ),
             );
 
             const [followed, trackedLive] = yield* Effect.all(
@@ -235,18 +239,23 @@ export class TwitchSource extends Context.Service<
                 Arr.appendAll(trackedLive, followed),
                 (a: TwitchStream, b: TwitchStream) => a.user_id === b.user_id,
               ),
-              (stream): FeedItem => {
-                const autoOpen = HashMap.get(
-                  tracked,
-                  loginKey(stream.user_login),
-                );
-
-                return {
-                  item: toMediaItem(stream),
-                  tracked: Option.isSome(autoOpen),
-                  autoOpen: Option.getOrElse(autoOpen, () => false),
-                };
-              },
+              (stream): FeedItem =>
+                Option.match(
+                  HashMap.get(tracked, loginKey(stream.user_login)),
+                  {
+                    onNone: () => ({
+                      item: toMediaItem(stream),
+                      tracked: false,
+                      autoOpen: false,
+                    }),
+                    onSome: ({ open, position }) => ({
+                      item: toMediaItem(stream),
+                      tracked: true,
+                      position,
+                      autoOpen: open,
+                    }),
+                  },
+                ),
             );
 
             const now = yield* DateTime.now;

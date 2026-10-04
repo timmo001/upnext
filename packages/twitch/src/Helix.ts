@@ -18,6 +18,7 @@ export const TwitchStream = Schema.Struct({
   title: Schema.String,
   started_at: Schema.DateTimeUtcFromString,
   thumbnail_url: Schema.String,
+  viewer_count: Schema.Finite,
 });
 
 export type TwitchStream = typeof TwitchStream.Type;
@@ -50,5 +51,6 @@ export const toMediaItem = (stream: TwitchStream): MediaItem => {
       },
     ),
     publishedAt: stream.started_at,
+    viewers: stream.viewer_count,
   };
 };
