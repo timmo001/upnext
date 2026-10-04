@@ -26,6 +26,9 @@ export interface Paths {
   readonly channelsFile: string;
   readonly stateDirectory: string;
   readonly stateFile: string;
+  // Watched and saved items, which can be synced between machines.
+  readonly dataDirectory: string;
+  readonly libraryFile: string;
   // Where twitch-notifications kept its config.
   readonly legacyDirectory: string;
 }
@@ -42,8 +45,13 @@ export const resolvePaths = Effect.fn("resolvePaths")(function* () {
     Config.withDefault(path.join(home, ".local", "state")),
   );
 
+  const dataHome = yield* Config.String("XDG_DATA_HOME").pipe(
+    Config.withDefault(path.join(home, ".local", "share")),
+  );
+
   const configDirectory = path.join(configHome, "upnext");
   const stateDirectory = path.join(stateHome, "upnext");
+  const dataDirectory = path.join(dataHome, "upnext");
 
   return {
     configDirectory,
@@ -51,6 +59,8 @@ export const resolvePaths = Effect.fn("resolvePaths")(function* () {
     channelsFile: path.join(configDirectory, "channels.yml"),
     stateDirectory,
     stateFile: path.join(stateDirectory, "state.json"),
+    dataDirectory,
+    libraryFile: path.join(dataDirectory, "library.json"),
     legacyDirectory: path.join(configHome, "twitch-notifications"),
   } satisfies Paths;
 });

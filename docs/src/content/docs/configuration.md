@@ -74,9 +74,17 @@ If you keep `channels.yml` in a dotfiles repository and link it into place with 
 
 ## State
 
-The daemon keeps files it writes for itself in `$XDG_STATE_HOME/upnext/state.json`, which is usually `~/.local/state/upnext/state.json`: Twitch and Google tokens, videos you've marked watched and your watch-later queue. You don't need to edit it.
+The daemon keeps your Twitch and Google tokens in `$XDG_STATE_HOME/upnext/state.json`, which is usually `~/.local/state/upnext/state.json`. They belong to that computer, so don't sync this file.
 
-The config and state directories are only readable by you (`0700`) and the files by you (`0600`).
+Videos you've marked watched and your watch-later queue go in `$XDG_DATA_HOME/upnext/library.json`, which is usually `~/.local/share/upnext/library.json`. You don't need to edit either file.
+
+The config, state and data directories are only readable by you (`0700`) and the files by you (`0600`).
+
+## Syncing between computers
+
+To share what you've watched and saved between computers, sync the `~/.local/share/upnext` directory with a tool such as Syncthing. The daemon reloads `library.json` when it changes, so a video marked watched on one computer disappears from the other. Before each change, it reads the file again, so it doesn't overwrite what came in from another computer.
+
+If both computers change the library within a few seconds of each other, your sync tool may keep only one of the changes.
 
 ## Socket path
 

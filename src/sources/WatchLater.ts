@@ -6,6 +6,7 @@ import {
   HashSet,
   Layer,
   Option,
+  Stream,
   String as Str,
 } from "effect";
 import { HttpClient } from "effect/http";
@@ -75,6 +76,18 @@ export class WatchLater extends Context.Service<
       );
 
       yield* publish;
+
+      // Hides videos marked watched on another machine, and shows its saved
+      // items.
+      yield* state.libraryChanges.pipe(
+        Stream.runForEach(() =>
+          Effect.gen(function* () {
+            yield* feed.remove((yield* state.get).watched ?? []);
+            yield* publish;
+          }),
+        ),
+        Effect.forkScoped,
+      );
 
       const youtubeItem = Effect.fn("WatchLater.youtubeItem")(function* (
         videoId: string,

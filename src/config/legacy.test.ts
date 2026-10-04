@@ -42,6 +42,8 @@ const makePaths = Effect.fn(function* (root: string) {
     channelsFile: path.join(configHome, "upnext", "channels.yml"),
     stateDirectory,
     stateFile: path.join(stateDirectory, "state.json"),
+    dataDirectory: path.join(root, "data", "upnext"),
+    libraryFile: path.join(root, "data", "upnext", "library.json"),
     legacyDirectory: path.join(configHome, "twitch-notifications"),
   } satisfies Paths;
 });

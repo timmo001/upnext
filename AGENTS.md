@@ -23,7 +23,7 @@
 - Every operation goes through the daemon socket. CLI commands are thin socket clients.
 - Pin dependencies to exact versions (`bun add -E`).
 - Run project tasks through mise. Scripts complex enough to need logic are written in Effect and exposed as mise tasks.
-- New files use `.yml`, not `.yaml`. Config files are YAML, parsed with `Bun.YAML.parse` and decoded with Schema. Files the daemon writes for itself go in `state.json` under `$XDG_STATE_HOME/upnext`.
+- New files use `.yml`, not `.yaml`. Config files are YAML, parsed with `Bun.YAML.parse` and decoded with Schema. Files the daemon writes for itself go in `state.json` under `$XDG_STATE_HOME/upnext`, apart from watched and saved items, which go in `library.json` under `$XDG_DATA_HOME/upnext` so they can be synced.
 - Config the user may have stowed from a dotfiles repository must stay stowed. Write the replacement into the same stow package and link to it, as `src/config/legacy.ts` does.
 
 ## Background Dev Servers
