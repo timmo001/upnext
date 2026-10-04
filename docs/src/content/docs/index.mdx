@@ -32,7 +32,7 @@ A saved video that's also one of a channel's recent uploads shows once, as the u
 
 - `upnext serve` runs as a systemd user service. It checks each source, keeps the feed and sends notifications.
 - Every other command is a small client. It connects to the daemon socket, makes one request and exits, or streams the feed.
-- The [Omarchy panel](/omarchy) shows the feed in sections: live, upcoming, new uploads and watch later.
+- The [Omarchy panel](/omarchy) shows what's live, upcoming, newly uploaded and saved, with Twitch and YouTube counts in the bar.
 - From TypeScript, use [`@timmo001/effect-upnext`](/libraries) to talk to the socket directly.
 
 ## Get started

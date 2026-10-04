@@ -31,8 +31,14 @@ omarchy plugin add https://github.com/timmo001/omarchy-upnext.git \
 
 ## Use
 
-Select the widget to open its panel. The feed is split into live, upcoming,
-new uploads and watch later. Type to filter, use Up and Down to move through
+The widget shows Twitch live, YouTube live and new upload counts in their
+source colours. Zero counts are hidden, and the widget hides when all three
+are.
+
+Select the widget to open its panel. Live channels from `channels.yml` come
+first, in that file's order, then other followed channels by viewers. Uploads
+from your YouTube channels come before uploads from other subscriptions, which
+start collapsed. Type to filter, use Up and Down to move through
 the list, press Enter to open the selected item, and press Escape to clear the
 filter or close the panel. Press Shift+Enter, or right-click, to mark a YouTube
 upload or a saved item watched. Press Ctrl+R to recheck every source.
@@ -45,10 +51,13 @@ Live previews refresh when the panel opens and every minute while it stays
 open. Each item keeps its last loaded image until a replacement loads.
 
 The plugin exposes the `timmo.upnext` shell IPC target with `recheck`,
-`restart`, `open`, `close`, `show`, `hide`, and `toggle` methods:
+`restart`, `open`, `close`, `show`, `hide`, `toggle`, `twitch` and `youtube`
+methods. `twitch` opens the panel on live channels and `youtube` on new
+uploads, and each closes the panel if it's already there. Bind them to keys:
 
 ```bash
-omarchy-shell shell toggle timmo.upnext
+omarchy-shell timmo.upnext twitch
+omarchy-shell timmo.upnext youtube
 ```
 
 ## Settings
@@ -57,6 +66,8 @@ omarchy-shell shell toggle timmo.upnext
 - `primaryOutput`: optional output name used when `primaryOnly` is enabled;
   the first available output is used when this is empty or unavailable
 - `revealOnHover`: reveal the normally hidden widget while hovering the bar
+- `maxCounts`: how many counts the widget shows, from 1 to 3; the new upload
+  count drops off first, then YouTube live
 
 Credentials, channels, auto-open, polling and notifications stay in Up Next's
 `~/.config/upnext/config.yml` and `channels.yml`. They are not plugin settings.
@@ -105,4 +116,4 @@ hosts. It does not read credentials, write Omarchy configuration, run
 privileged commands, or install software.
 
 [upnext]: https://upnext.timmo.dev
-[setup]: https://upnext.timmo.dev/configuration
+[setup]: https://upnext.timmo.dev/setup/twitch

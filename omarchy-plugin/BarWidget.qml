@@ -30,19 +30,33 @@ BarWidget {
     && !!bar
     && bar.barHovered === true
   readonly property bool shown: !upnext || !hiddenByState || hoverRevealed || opened
-  readonly property string displayText: upnext && upnext.statusState === "live"
-    ? "󰂚 " + upnext.liveCount : "󰂚"
-  readonly property color displayColor: !upnext || upnext.statusState === "inactive"
-    ? "#a55555" : (upnext.statusState === "live" ? "#ac77e5" : "#9b9b9b")
-  readonly property string tooltipText: !upnext || upnext.statusState === "inactive"
-    ? "Up Next is unavailable"
-    : (upnext.statusState === "live"
-      ? upnext.liveCount + " channel" + (upnext.liveCount === 1 ? "" : "s") + " live"
-      : "Nothing live")
+  readonly property bool vertical: bar ? bar.vertical : false
+  // Twitch live, YouTube live, then new uploads. Zero counts are left out,
+  // and the lowest priority goes first when there's no room.
+  readonly property var counts: {
+    if (!upnext || !upnext.connected) return []
+    var parts = [
+      { icon: "󰕃", count: upnext.twitchLiveCount, color: upnext.sourceColors.twitch, gap: false },
+      { icon: "󰗃", count: upnext.youtubeLiveCount, color: upnext.sourceColors.youtube, gap: false },
+      { icon: "󰕧", count: upnext.newUploadCount, color: Qt.darker(upnext.sourceColors.youtube, 1.3), gap: true }
+    ].filter(function(part) { return part.count > 0 })
+    return parts.slice(0, vertical ? 1 : Math.max(1, setting("maxCounts", 3)))
+  }
+  readonly property string displayText: root.hoverRevealed ? "󰂜 0" : "󰂚"
+  readonly property color displayColor: !upnext || upnext.statusState === "inactive" ? "#a55555" : "#9b9b9b"
+  readonly property string tooltipText: {
+    if (!upnext || upnext.statusState === "inactive") return "Up Next is unavailable"
+    var lines = []
+    if (upnext.twitchLiveCount > 0) lines.push(upnext.twitchLiveCount + " live on Twitch")
+    if (upnext.youtubeLiveCount > 0) lines.push(upnext.youtubeLiveCount + " live on YouTube")
+    if (upnext.newUploadCount > 0)
+      lines.push(upnext.newUploadCount + " new upload" + (upnext.newUploadCount === 1 ? "" : "s"))
+    return lines.length > 0 ? lines.join(" · ") : "Nothing live"
+  }
 
   readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false
   readonly property bool popoutSwitchClosing: panelLoader.item ? panelLoader.item.popoutSwitchClosing === true : false
-  readonly property real openPanelIndicatorWidth: button.labelWidth
+  readonly property real openPanelIndicatorWidth: counts.length > 0 ? countsRow.implicitWidth : button.labelWidth
 
   function activeWidget() {
     if (root.activeInstance) return root
@@ -78,6 +92,17 @@ BarWidget {
       return
     }
     if (panelLoader.item) panelLoader.item.toggle()
+  }
+
+  // Opens the panel on Twitch live channels or YouTube uploads, or closes it
+  // if it's already showing them.
+  function toggleSection(source) {
+    var widget = activeWidget()
+    if (widget && widget !== root) {
+      widget.toggleSection(source)
+      return
+    }
+    if (panelLoader.item) panelLoader.item.toggleSource(source)
   }
 
   function closeForPopoutSwitch() {
@@ -130,6 +155,8 @@ BarWidget {
         function show(): void { root.open() }
         function hide(): void { root.close() }
         function toggle(): void { root.togglePanel() }
+        function twitch(): void { root.toggleSection("twitch") }
+        function youtube(): void { root.toggleSection("youtube") }
       }
     }
   }
@@ -139,7 +166,10 @@ BarWidget {
     anchors.fill: parent
     bar: root.bar
     fontSize: 10
-    text: root.hoverRevealed ? "󰂜 0" : root.displayText
+    text: root.displayText
+    labelVisible: root.counts.length === 0
+    fixedWidth: root.counts.length > 0 && !root.vertical
+      ? countsRow.implicitWidth + Style.spaceReal(horizontalMargin) * 2 : -1
     dimmed: root.hoverRevealed
     foreground: root.displayColor
     tooltipText: root.tooltipText
@@ -149,6 +179,40 @@ BarWidget {
       if (buttonCode === Qt.MiddleButton) root.upnext.recheck(false)
       else if (buttonCode === Qt.RightButton) root.upnext.restart()
       else root.togglePanel()
+    }
+
+    Row {
+      id: countsRow
+      anchors.centerIn: parent
+      visible: root.counts.length > 0
+      spacing: Style.space(6)
+
+      Repeater {
+        model: root.counts
+
+        Row {
+          required property var modelData
+          required property int index
+          spacing: Style.space(3)
+          leftPadding: modelData.gap && index > 0 ? Style.space(6) : 0
+
+          Text {
+            text: modelData.icon
+            color: modelData.color
+            font.family: button.fontFamily
+            font.pixelSize: button.fontSize
+            renderType: Text.NativeRendering
+          }
+
+          Text {
+            text: modelData.count
+            color: modelData.color
+            font.family: button.fontFamily
+            font.pixelSize: button.fontSize
+            renderType: Text.NativeRendering
+          }
+        }
+      }
     }
   }
 }

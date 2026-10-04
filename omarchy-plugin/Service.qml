@@ -17,16 +17,26 @@ Item {
   property var restartCommand: ["systemctl", "--user", "restart", "upnext.service"]
   property var thumbnails: ({})
 
+  // Brand colours, lifted so they read on a dark bar.
+  readonly property var sourceColors: ({ twitch: "#a970ff", youtube: "#ff4040" })
+
   readonly property bool restarting: restartFeedback.running
   readonly property bool actionBusy: actionProcess.running || restarting
   readonly property bool canRecheck: connected && !actionBusy
   readonly property var liveItems: items.filter(function(entry) { return entry.item.kind === "live" })
-  readonly property int liveCount: liveItems.filter(function(entry) { return entry.tracked === true }).length
+  readonly property var trackedLive: liveItems.filter(function(entry) { return entry.tracked === true })
+  readonly property int liveCount: trackedLive.length
+  readonly property int twitchLiveCount: trackedLive.filter(function(entry) { return entry.item.source === "twitch" }).length
+  readonly property int youtubeLiveCount: trackedLive.filter(function(entry) { return entry.item.source === "youtube" }).length
+  readonly property int newUploadCount: items.filter(function(entry) {
+    return entry.item.kind === "upload" && entry.item.source === "youtube" && entry.tracked === true
+  }).length
   readonly property var attentionSources: sources.filter(function(status) {
     return status.state === "auth-required" || status.state === "error"
   })
-  // live, active or inactive, for the bar widget.
-  readonly property string statusState: !connected ? "inactive" : (liveCount > 0 ? "live" : "active")
+  // live, new, active or inactive, for the bar widget.
+  readonly property string statusState: !connected ? "inactive"
+    : (liveCount > 0 ? "live" : (newUploadCount > 0 ? "new" : "active"))
 
   function command(args) {
     return socketPath ? [commandPath, "--socket", socketPath].concat(args) : [commandPath].concat(args)

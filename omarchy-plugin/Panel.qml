@@ -17,9 +17,9 @@ Panel {
   readonly property var barIdentity: hostWidget || root
   readonly property color contentForeground: bar ? bar.foreground : Color.foreground
   readonly property string contentFontFamily: bar ? bar.fontFamily : Style.font.family
-  readonly property color liveColor: "#ac77e5"
-  readonly property var sourceIcons: ({ twitch: "\uf1e8", youtube: "\uf16a", link: "\uf0c1" })
-  readonly property var sourceColors: ({ twitch: "#ac77e5", youtube: "#ff4e45" })
+  readonly property var sourceColors: service ? service.sourceColors : ({ twitch: "#a970ff", youtube: "#ff4040" })
+  readonly property color liveColor: sourceColors.twitch
+  readonly property var sourceIcons: ({ twitch: "󰕃", youtube: "󰗃", link: "󰌹" })
   readonly property int actionCount: 5
   readonly property var actionLabels: [
     "Recheck",
@@ -28,7 +28,7 @@ Panel {
     "Open YouTube subscriptions",
     "Restart Up Next"
   ]
-  readonly property var actionIcons: ["󰑐", "󰕃", "\uf1e8", "\uf16a", "󰜉"]
+  readonly property var actionIcons: ["󰑐", "󰏌", "󰕃", "󰗃", "󰜉"]
   readonly property var actionUrls: [
     "",
     "",
@@ -36,13 +36,20 @@ Panel {
     "https://www.youtube.com/feed/subscriptions",
     ""
   ]
+  // Live channels from channels.yml, in its order, then other followed
+  // channels by viewers. Uploads split the same way.
   readonly property var sections: [
     { kind: "live", title: "LIVE" },
+    { kind: "followed", title: "FOLLOWED" },
     { kind: "upcoming", title: "UPCOMING" },
     { kind: "upload", title: "NEW UPLOADS" },
+    { kind: "other", title: "OTHER UPLOADS" },
     { kind: "saved", title: "WATCH LATER" }
   ]
-  property var expanded: ({ live: true, upcoming: true, upload: true, saved: true })
+  readonly property var defaultExpanded: ({ live: true, followed: true, upcoming: true, upload: true, other: false, saved: true })
+  property var expanded: defaultExpanded
+  // The source the panel was last opened on, so its bind can close it again.
+  property string focusedSource: ""
   // Refreshed while the panel is open, so relative times stay current.
   property double now: Date.now()
 
@@ -77,15 +84,31 @@ Panel {
       + date.toLocaleTimeString(Qt.locale(), "HH:mm")
   }
 
+  function viewers(count) {
+    if (!(count >= 0)) return ""
+    var text = count < 1000 ? String(count)
+      : (count < 10000 ? (count / 1000).toFixed(1).replace(/\.0$/, "") + "K"
+        : (count < 1000000 ? Math.round(count / 1000) + "K"
+          : (count / 1000000).toFixed(1).replace(/\.0$/, "") + "M"))
+    return "󰈈 " + text
+  }
+
   function detailFor(entry) {
     var item = entry.item
     var published = item.publishedAt ? String(item.publishedAt) : ""
     if (item.kind === "live")
-      return [item.category || "Live", entry.tracked ? "" : "followed"]
+      return [viewers(item.viewers), item.category || "Live"]
         .filter(function(part) { return part !== "" }).join(" · ")
     if (item.kind === "upcoming") return startsAt(published)
     if (item.kind === "saved") return published ? "Saved " + ago(published) : "Saved"
     return ago(published)
+  }
+
+  function sectionFor(entry) {
+    var kind = entry.item.kind
+    if (kind === "live") return entry.tracked ? "live" : "followed"
+    if (kind === "upload") return entry.tracked ? "upload" : "other"
+    return kind
   }
 
   function buildPanelRows() {
@@ -112,17 +135,15 @@ Panel {
         secondaryText: status.message || status.state
       })
     }
+    // The daemon already orders the feed.
     var items = service && service.connected ? service.items : []
-    // Tracked live channels before followed ones; the feed's order otherwise.
-    var ordered = items.filter(function(entry) { return entry.item.kind !== "live" || entry.tracked })
-      .concat(items.filter(function(entry) { return entry.item.kind === "live" && !entry.tracked }))
-    for (var k = 0; k < ordered.length; k++) {
-      var entry = ordered[k]
+    for (var k = 0; k < items.length; k++) {
+      var entry = items[k]
       var item = entry.item
       rows.push({
         key: "item:" + item.id,
         kind: "item",
-        section: item.kind,
+        section: sectionFor(entry),
         value: entry,
         primaryText: item.channel ? item.channel.name : item.title,
         secondaryText: item.channel ? item.title : "",
@@ -169,7 +190,8 @@ Panel {
 
   function open() {
     now = Date.now()
-    expanded = { live: true, upcoming: true, upload: true, saved: true }
+    expanded = defaultExpanded
+    focusedSource = ""
     filterController.reset()
     if (service) service.refreshThumbnails()
     controller.show()
@@ -177,6 +199,36 @@ Panel {
       panelFlick.contentY = 0
       filterController.forceActiveFocus()
     })
+  }
+
+  // Opens on Twitch live channels or YouTube uploads, with the first one
+  // selected and its section scrolled to the top.
+  function openOn(source) {
+    var wanted = source === "twitch" ? ["live", "followed"] : ["upload", "other"]
+    open()
+    focusedSource = source
+    var next = Object.assign({}, expanded)
+    for (var i = 0; i < wanted.length; i++) next[wanted[i]] = true
+    expanded = next
+    Qt.callLater(function() {
+      for (var j = 0; j < filteredSections.length; j++) {
+        var section = filteredSections[j]
+        if (wanted.indexOf(section.kind) < 0) continue
+        var first = section.rows.length > 0 ? section.rows[0].key : section.toggleKey
+        filterController.cursorIndex = filterController.indexForKey(first)
+        var sectionItem = sectionRepeater.itemAt(j)
+        if (sectionItem) {
+          var point = sectionItem.mapToItem(contentColumn, 0, 0)
+          panelFlick.contentY = Math.max(0, Math.min(point.y, panelFlick.contentHeight - panelFlick.height))
+        }
+        return
+      }
+    })
+  }
+
+  function toggleSource(source) {
+    if (opened && focusedSource === source) close()
+    else openOn(source)
   }
 
   function close() {
@@ -570,7 +622,7 @@ Panel {
               implicitHeight: itemColumn.implicitHeight + Style.space(12)
               hasCursor: filterController.cursorIndex === filterController.indexForKey(modelData.key)
               foreground: root.contentForeground
-              accent: live ? root.liveColor : root.contentForeground
+              accent: live ? root.sourceColor(item.source) : root.contentForeground
 
               Row {
                 anchors.left: parent.left
@@ -650,7 +702,7 @@ Panel {
 
                 Text {
                   width: Style.space(20)
-                  text: itemSurface.entry.autoOpen === true ? "" : root.sourceIcon(itemSurface.item.source)
+                  text: itemSurface.entry.autoOpen === true ? "󰉁" : root.sourceIcon(itemSurface.item.source)
                   color: itemSurface.entry.autoOpen === true
                     ? Qt.darker(root.contentForeground, 1.3)
                     : root.sourceColor(itemSurface.item.source)
