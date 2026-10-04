@@ -40,13 +40,15 @@ first, in that file's order, then other followed channels by viewers. Uploads
 from your YouTube channels come before uploads from other subscriptions, which
 start collapsed. Type to filter, use Up and Down to move through
 the list, press Enter to open the selected item, and press Escape to clear the
-filter or close the panel. Press Shift+Enter, or click a video's checkmark, to
+filter or close the panel. A video in the watch-later playlist opens in the
+playlist; press Ctrl+Enter, or Ctrl-click, to open it on its own. Press Shift+Enter, or click a video's checkmark, to
 mark a YouTube video or a saved item watched. The checkmark on a section
 heading marks the whole section watched. Right-click an item, or press the
 Menu key or Shift+F10, to
 open it or its channel, add the channel to your channels, save a YouTube video
 to watch later or mark it watched. Saving moves the video into Watch later, out
-of its other section.
+of its other section. With a watch-later playlist set, the last row of Watch
+later opens it on YouTube.
 Press Ctrl+R to recheck every source.
 
 Middle-click the widget to recheck. Right-click it to restart the daemon.

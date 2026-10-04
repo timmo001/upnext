@@ -9,6 +9,8 @@ Item {
   property bool connected: false
   property var sources: []
   property var items: []
+  // The YouTube playlist saved videos go in, with its url and title, or null.
+  property var watchLaterPlaylist: null
 
   // Sent just before a feed update replaces the items, so a panel can keep
   // its place.
@@ -75,6 +77,7 @@ Item {
       itemsAboutToChange()
       sources = Array.isArray(feed.sources) ? feed.sources : []
       items = Array.isArray(feed.items) ? feed.items : []
+      watchLaterPlaylist = feed.watchLaterPlaylist || null
       connected = true
       errorText = ""
       pruneThumbnails()

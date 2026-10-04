@@ -153,6 +153,19 @@ Panel {
         tertiaryText: detailFor(entry)
       })
     }
+    var playlist = service && service.connected ? service.watchLaterPlaylist : null
+    if (playlist && playlist.url) {
+      rows.push({
+        key: "playlist",
+        kind: "playlist",
+        section: "saved",
+        value: playlist,
+        primaryText: playlist.title
+          ? "Open “" + playlist.title + "” playlist on YouTube"
+          : "Open your watch-later playlist on YouTube",
+        secondaryText: ""
+      })
+    }
     return rows
   }
 
@@ -192,8 +205,11 @@ Panel {
   function buildSections() {
     if (service && !service.connected && service.errorText !== "") return []
     var items = filterRows("item")
+    var links = filterRows("playlist")
     return sections.filter(sectionEnabled).map(function(section) {
       var rows = items.filter(function(entry) { return entry.section === section.kind })
+      var shown = filterController.filterText || expanded[section.kind]
+      var link = links.find(function(entry) { return entry.section === section.kind }) || null
       var status = sectionStatus(section)
       return {
         kind: section.kind,
@@ -206,9 +222,11 @@ Panel {
         // What "mark all as watched" covers: the section's videos that match
         // the filter, collapsed or not.
         markable: rows.filter(function(entry) { return canMarkWatched(entry.value) }),
-        rows: filterController.filterText || expanded[section.kind] ? rows : []
+        rows: shown ? rows : [],
+        // A last row that opens the section's playlist, such as Watch later's.
+        link: shown ? link : null
       }
-    }).filter(function(section) { return section.count > 0 || !filterController.filterText })
+    }).filter(function(section) { return section.count > 0 || section.link || !filterController.filterText })
   }
 
   function buildNavigationRows() {
@@ -220,6 +238,7 @@ Panel {
       if (section.markable.length > 0)
         rows.push({ key: section.markAllKey, kind: "mark-all", section: section.kind })
       rows = rows.concat(section.rows)
+      if (section.link) rows.push(section.link)
     }
     return rows
   }
@@ -337,6 +356,7 @@ Panel {
       var sectionItem = sectionRepeater.itemAt(i)
       if (!sectionItem) return null
       if (entry.kind === "toggle" || entry.kind === "mark-all") return sectionItem.heading
+      if (entry.kind === "playlist") return sectionItem.linkRow
       return sectionItem.rowAt(section.rows.indexOf(entry))
     }
     return null
@@ -428,14 +448,17 @@ Panel {
     return entry.item.kind === "saved" || entry.item.source === "youtube"
   }
 
-  // Opens the item, or with Shift marks it watched.
-  function activateItem(entry, markWatched) {
+  // Opens the item, or with Shift marks it watched. A video saved in the
+  // playlist opens in the playlist, or on its own with Ctrl.
+  function activateItem(entry, markWatched, alone) {
     if (!service) return
     if (markWatched) {
       if (canMarkWatched(entry)) service.markWatched(entry.item)
       return
     }
-    service.openUrl(entry.item.url)
+    service.openUrl(alone && entry.item.source === "youtube"
+      ? "https://www.youtube.com/watch?v=" + entry.item.id.substring("youtube:".length)
+      : entry.item.url)
     close()
   }
 
@@ -483,10 +506,18 @@ Panel {
     close()
   }
 
+  function openPlaylist(playlist) {
+    if (!service) return
+    service.openUrl(playlist.url)
+    close()
+  }
+
   function activateEntry(entry, modifiers) {
     if (entry.kind === "action" || entry.kind === "header-action") activateAction(entry.actionIndex)
     else if (entry.kind === "attention") activateAttention(entry.value)
-    else if (entry.kind === "item") activateItem(entry.value, (modifiers & Qt.ShiftModifier) !== 0)
+    else if (entry.kind === "item")
+      activateItem(entry.value, (modifiers & Qt.ShiftModifier) !== 0, (modifiers & Qt.ControlModifier) !== 0)
+    else if (entry.kind === "playlist") openPlaylist(entry.value)
     else if (entry.kind === "toggle") toggleSection(entry.section)
     else if (entry.kind === "mark-all") markAllWatched(entry.section)
   }
@@ -736,6 +767,7 @@ Panel {
               id: sectionColumn
               required property var modelData
               readonly property alias heading: sectionHeading
+              readonly property alias linkRow: sectionLink
               width: contentColumn.width
               spacing: Style.space(4)
 
@@ -803,6 +835,56 @@ Panel {
                   font.family: root.contentFontFamily
                   font.pixelSize: Style.font.caption
                   font.italic: sectionColumn.modelData.loading
+                }
+
+                CursorSurface {
+                  id: sectionLink
+                  readonly property var link: sectionColumn.modelData.link
+                  visible: link !== null
+                  width: parent.width
+                  implicitHeight: linkRow.implicitHeight + Style.space(12)
+                  hasCursor: link !== null && filterController.cursorIndex === filterController.indexForKey(link.key)
+                  foreground: root.contentForeground
+                  accent: root.contentForeground
+
+                  Row {
+                    id: linkRow
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    anchors.leftMargin: Style.space(8)
+                    anchors.rightMargin: Style.space(8)
+                    spacing: Style.space(10)
+
+                    Text {
+                      width: Style.space(22)
+                      text: root.sourceIcon("youtube")
+                      color: root.sourceColor("youtube")
+                      font.family: root.contentFontFamily
+                      font.pixelSize: Style.font.icon
+                      horizontalAlignment: Text.AlignHCenter
+                    }
+
+                    Text {
+                      width: Math.max(0, linkRow.width - Style.space(32))
+                      text: sectionLink.link ? String(sectionLink.link.primaryText) : ""
+                      color: root.contentForeground
+                      font.family: root.contentFontFamily
+                      font.pixelSize: Style.font.body
+                      elide: Text.ElideRight
+                    }
+                  }
+
+                  MouseArea {
+                    id: linkHover
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onPositionChanged: function(mouse) {
+                      if (sectionLink.link) root.hoverSelect(linkHover, mouse, sectionLink.link.key)
+                    }
+                    onClicked: if (sectionLink.link) root.openPlaylist(sectionLink.link.value)
+                  }
                 }
               }
             }
@@ -938,7 +1020,7 @@ Panel {
                 onClicked: function(mouse) {
                   if (mouse.button === Qt.RightButton)
                     root.openItemMenu(itemSurface.entry, itemSurface, mouse.x, mouse.y)
-                  else root.activateItem(itemSurface.entry, false)
+                  else root.activateItem(itemSurface.entry, false, (mouse.modifiers & Qt.ControlModifier) !== 0)
                 }
               }
 
