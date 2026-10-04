@@ -237,12 +237,16 @@ Panel {
     expanded = next
   }
 
-  // Upcoming starts collapsed when there's nothing in it.
+  // Followed and Upcoming start collapsed when there's nothing in them.
   function openingExpanded() {
     var next = Object.assign({}, defaultExpanded)
-    next.upcoming = panelRows.some(function(entry) {
-      return entry.kind === "item" && entry.section === "upcoming"
-    })
+    var collapsible = ["followed", "upcoming"]
+    for (var i = 0; i < collapsible.length; i++) {
+      var kind = collapsible[i]
+      next[kind] = panelRows.some(function(entry) {
+        return entry.kind === "item" && entry.section === kind
+      })
+    }
     return next
   }
 
@@ -264,7 +268,7 @@ Panel {
   // collapsed.
   function openOn(source) {
     var wanted = source === "twitch" ? ["live", "followed"] : ["upload", "other"]
-    var expand = source === "twitch" ? ["live", "followed"] : ["upload"]
+    var expand = source === "twitch" ? ["live"] : ["upload"]
     open()
     focusedSource = source
     var next = Object.assign({}, expanded)
