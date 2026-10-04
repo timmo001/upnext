@@ -37,14 +37,15 @@ Panel {
     ""
   ]
   // Live channels from channels.yml, in its order, then other followed
-  // channels by viewers. Uploads split the same way.
+  // channels by viewers. Uploads split the same way. Each section lists the
+  // sources it comes from, so it can show it's loading until they report.
   readonly property var sections: [
-    { kind: "live", title: "LIVE" },
-    { kind: "followed", title: "FOLLOWED" },
-    { kind: "upcoming", title: "UPCOMING" },
-    { kind: "upload", title: "NEW UPLOADS" },
-    { kind: "other", title: "OTHER UPLOADS" },
-    { kind: "saved", title: "WATCH LATER" }
+    { kind: "live", title: "LIVE", sources: ["twitch", "youtube"], empty: "No one you track is live" },
+    { kind: "followed", title: "FOLLOWED", sources: ["twitch"], empty: "No one else you follow is live" },
+    { kind: "upcoming", title: "UPCOMING", sources: ["youtube"], empty: "No upcoming streams" },
+    { kind: "upload", title: "NEW UPLOADS", sources: ["youtube"], empty: "All caught up" },
+    { kind: "other", title: "OTHER UPLOADS", sources: ["youtube"], empty: "All caught up" },
+    { kind: "saved", title: "WATCH LATER", sources: [], empty: "Nothing saved for later" }
   ]
   readonly property var defaultExpanded: ({ live: true, followed: true, upcoming: true, upload: true, other: false, saved: true })
   property var expanded: defaultExpanded
@@ -159,14 +160,47 @@ Panel {
     return filterController.filteredModel.filter(function(entry) { return entry.kind === kind })
   }
 
+  // What an empty section says: that its sources haven't reported yet, that
+  // they failed, or that there's nothing in it.
+  function sectionStatus(section) {
+    var statuses = service ? service.sources : []
+    var loading = !(service && service.connected)
+    var failed = []
+    for (var i = 0; i < section.sources.length; i++) {
+      var source = section.sources[i]
+      var status = statuses.find(function(each) { return each.source === source })
+      if (!status) loading = true
+      else if (status.state === "error" || status.state === "auth-required")
+        failed.push(source === "youtube" ? "YouTube" : "Twitch")
+    }
+    if (loading) return { loading: true, text: "Loading…" }
+    if (failed.length > 0) return { loading: false, text: "Couldn't check " + failed.join(" or ") }
+    return { loading: false, text: section.empty }
+  }
+
+  // Disabled sources' sections are left out. The rest stay, even when empty,
+  // unless a filter is narrowing them down.
+  function sectionEnabled(section) {
+    if (section.sources.length === 0) return true
+    var statuses = service ? service.sources : []
+    return section.sources.some(function(source) {
+      var status = statuses.find(function(each) { return each.source === source })
+      return !status || status.state !== "disabled"
+    })
+  }
+
   function buildSections() {
+    if (service && !service.connected && service.errorText !== "") return []
     var items = filterRows("item")
-    return sections.map(function(section) {
+    return sections.filter(sectionEnabled).map(function(section) {
       var rows = items.filter(function(entry) { return entry.section === section.kind })
+      var status = sectionStatus(section)
       return {
         kind: section.kind,
         title: section.title,
         count: rows.length,
+        loading: rows.length === 0 && status.loading,
+        emptyText: status.text,
         toggleKey: "toggle:" + section.kind,
         markAllKey: "mark-all:" + section.kind,
         // What "mark all as watched" covers: the section's videos that match
@@ -174,7 +208,7 @@ Panel {
         markable: rows.filter(function(entry) { return canMarkWatched(entry.value) }),
         rows: filterController.filterText || expanded[section.kind] ? rows : []
       }
-    }).filter(function(section) { return section.count > 0 })
+    }).filter(function(section) { return section.count > 0 || !filterController.filterText })
   }
 
   function buildNavigationRows() {
@@ -698,7 +732,8 @@ Panel {
                 width: parent.width
                 hasCursor: filterController.cursorIndex === filterController.indexForKey(sectionColumn.modelData.toggleKey)
                 title: (filterController.filterText || root.expanded[sectionColumn.modelData.kind] ? "󰅀 " : "󰅂 ")
-                  + sectionColumn.modelData.title + " · " + sectionColumn.modelData.count
+                  + sectionColumn.modelData.title
+                  + (sectionColumn.modelData.loading ? "" : " · " + sectionColumn.modelData.count)
                   + (filterController.filterText ? " MATCHING" : "")
                 foreground: root.contentForeground
                 fontFamily: root.contentFontFamily
@@ -739,6 +774,19 @@ Panel {
                   id: rowRepeater
                   model: sectionColumn.modelData.rows
                   delegate: itemDelegate
+                }
+
+                Text {
+                  visible: sectionColumn.modelData.count === 0 && root.expanded[sectionColumn.modelData.kind] === true
+                  width: parent.width
+                  topPadding: Style.space(6)
+                  bottomPadding: Style.space(6)
+                  leftPadding: Style.space(12)
+                  text: sectionColumn.modelData.emptyText
+                  color: Qt.darker(root.contentForeground, 1.4)
+                  font.family: root.contentFontFamily
+                  font.pixelSize: Style.font.caption
+                  font.italic: sectionColumn.modelData.loading
                 }
               }
             }
