@@ -132,7 +132,7 @@ youtube:
 systemctl --user restart upnext.service
 ```
 
-4. Sign in again, so Up Next can change playlists as well as read them:
+Then sign in again, so Up Next can change playlists as well as read them:
 
 ```bash
 upnext auth youtube
