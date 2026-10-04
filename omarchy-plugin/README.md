@@ -44,7 +44,9 @@ filter or close the panel. Press Shift+Enter, or click a video's checkmark, to
 mark a YouTube video or a saved item watched. The checkmark on a section
 heading marks the whole section watched. Right-click an item, or press the
 Menu key or Shift+F10, to
-open it or its channel, add the channel to your channels or mark it watched.
+open it or its channel, add the channel to your channels, save a YouTube video
+to watch later or mark it watched. Saving moves the video into Watch later, out
+of its other section.
 Press Ctrl+R to recheck every source.
 
 Middle-click the widget to recheck. Right-click it to restart the daemon.

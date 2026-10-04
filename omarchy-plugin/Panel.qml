@@ -447,6 +447,8 @@ Panel {
       actions.push({ id: "channel", label: "Open " + entry.item.channel.name })
     if (entry.tracked !== true && (entry.item.source === "twitch" || entry.item.source === "youtube"))
       actions.push({ id: "add", label: "Add " + entry.item.channel.name + " to your channels" })
+    if (entry.item.source === "youtube" && entry.item.kind !== "saved")
+      actions.push({ id: "save", label: "Watch later" })
     if (canMarkWatched(entry)) actions.push({ id: "watched", label: "Mark as watched" })
     return actions
   }
@@ -471,6 +473,7 @@ Panel {
       service.openUrl(entry.item.channel.url)
       close()
     } else if (action === "add") service.addChannel(entry.item)
+    else if (action === "save") service.watchLater(entry.item)
     else if (action === "watched") service.markWatched(entry.item)
   }
 

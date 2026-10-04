@@ -156,6 +156,12 @@ Item {
     Quickshell.execDetached(command(["channel", "add", String(item.source), name]))
   }
 
+  // Saves the item to watch later, which moves it out of its other section.
+  function watchLater(item) {
+    if (!item || !connected) return
+    Quickshell.execDetached(command(["queue", "add", String(item.url)]))
+  }
+
   function signIn(source) {
     Quickshell.execDetached(command(["auth", String(source)]))
   }
