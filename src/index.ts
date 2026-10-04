@@ -233,16 +233,37 @@ const pickChannels = (source: ChannelSource) =>
     return yield* Prompt.run(
       Prompt.MultiSelect({
         message: `Add ${candidateNoun[source]} (space to pick, enter to add)`,
-        choices: Arr.map(candidates, ({ name, title }) => ({
-          title,
-          value: name,
-          description: name,
+        choices: Arr.map(candidates, (candidate) => ({
+          title: candidate.title,
+          value: candidate,
+          description: candidate.name,
         })),
         maxPerPage: 15,
         min: 1,
       }),
     );
   });
+
+const notifyFlag = (name: string, description: string) =>
+  Flag.Boolean(name).pipe(Flag.withDescription(description), Flag.optional);
+
+// Asks which notifications a YouTube channel should send. Only runs in a
+// terminal, so the panel and scripts get the defaults.
+const pickNotify = (title: string) =>
+  Prompt.run(
+    Prompt.MultiSelect({
+      message: `Notify about ${title}`,
+      choices: [
+        { title: "Live streams", value: "live" as const, selected: true },
+        { title: "Uploads", value: "uploads" as const },
+      ],
+    }),
+  ).pipe(
+    Effect.map((picked) => ({
+      live: Arr.contains(picked, "live"),
+      uploads: Arr.contains(picked, "uploads"),
+    })),
+  );
 
 const channel = Command.make("channel").pipe(
   Command.withDescription("Add or remove followed channels"),
@@ -263,8 +284,16 @@ const channel = Command.make("channel").pipe(
           Argument.optional,
         ),
         open: openFlag("Open the channel as soon as it goes live"),
+        notifyLive: notifyFlag(
+          "notify-live",
+          "YouTube only: notify when the channel goes live. Asks when left out in a terminal, otherwise on",
+        ),
+        notifyUploads: notifyFlag(
+          "notify-uploads",
+          "YouTube only: notify about new uploads. Asks when left out in a terminal, otherwise off",
+        ),
       },
-      ({ source, name, open }) =>
+      ({ source, name, open, notifyLive, notifyUploads }) =>
         withDaemon(
           Effect.gen(function* () {
             const client = yield* UpnextClient;
@@ -283,22 +312,43 @@ const channel = Command.make("channel").pipe(
               onSome: Effect.succeed,
             });
 
-            const names = yield* Option.match(name, {
+            const channels = yield* Option.match(name, {
               onNone: () => pickChannels(chosenSource),
-              onSome: (value) => Effect.succeed([value]),
+              onSome: (value) =>
+                Effect.succeed([{ name: value, title: value }]),
             });
 
+            const askNotify =
+              chosenSource === "youtube" &&
+              Option.isNone(notifyLive) &&
+              Option.isNone(notifyUploads) &&
+              process.stdin.isTTY === true;
+
             yield* Effect.forEach(
-              names,
+              channels,
               (each) =>
-                client.AddChannel({ source: chosenSource, name: each, open }),
+                Effect.gen(function* () {
+                  const notify = askNotify
+                    ? yield* pickNotify(each.title)
+                    : {
+                        live: Option.getOrUndefined(notifyLive),
+                        uploads: Option.getOrUndefined(notifyUploads),
+                      };
+
+                  yield* client.AddChannel({
+                    source: chosenSource,
+                    name: each.name,
+                    open,
+                    notify,
+                  });
+                }),
               { discard: true },
             );
 
             yield* Console.error(
-              names.length === 1
-                ? `Added ${names[0]}`
-                : `Added ${names.length} channels`,
+              channels.length === 1
+                ? `Added ${channels[0]?.name}`
+                : `Added ${channels.length} channels`,
             );
           }),
         ),

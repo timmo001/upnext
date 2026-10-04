@@ -36,8 +36,10 @@ ARGUMENTS
   name string      A Twitch login or a YouTube channel ID. Without one, pick from the channels you follow (optional)
 
 FLAGS
-  --socket string    Path to the daemon socket (default: $UPNEXT_SOCK, then $XDG_RUNTIME_DIR/upnext/upnext.sock)
-  --open             Open the channel as soon as it goes live
+  --socket string     Path to the daemon socket (default: $UPNEXT_SOCK, then $XDG_RUNTIME_DIR/upnext/upnext.sock)
+  --open              Open the channel as soon as it goes live
+  --notify-live       YouTube only: notify when the channel goes live. Asks when left out in a terminal, otherwise on
+  --notify-uploads    YouTube only: notify about new uploads. Asks when left out in a terminal, otherwise off
 ```
 
 ## `upnext channel remove`
