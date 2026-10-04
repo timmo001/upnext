@@ -1,5 +1,7 @@
 # Up Next
 
+![Up Next](.github/assets/banner.png)
+
 What's live, what's new and what you saved for later, in one feed.
 
 `upnext` watches the Twitch channels you follow, your YouTube channels and subscriptions, and a watch-later queue. A small daemon keeps the feed, sends desktop notifications when something goes live and serves the feed to local apps over a Unix socket. The `upnext` CLI and the Omarchy panel both read from it.
