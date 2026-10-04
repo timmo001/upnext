@@ -51,7 +51,8 @@ Item {
     var parts = []
     if (twitchLiveCount > 0) parts.push(twitchLiveCount + " live on Twitch")
     if (youtubeLiveCount > 0) parts.push(youtubeLiveCount + " live on YouTube")
-    if (newUploadCount > 0) parts.push(newUploadCount + " new on YouTube")
+    if (newUploadCount > 0)
+      parts.push(newUploadCount + " new upload" + (newUploadCount === 1 ? "" : "s") + " on YouTube")
     return parts.length > 0 ? parts.join(" · ") : "Nothing new"
   }
   // live, new, active or inactive, for the bar widget.
