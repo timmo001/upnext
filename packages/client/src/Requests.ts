@@ -42,7 +42,7 @@ export const QueueAddRequest = Schema.Struct({
 export type QueueAddRequest = typeof QueueAddRequest.Type;
 
 export const MarkWatchedRequest = Schema.Struct({
-  id: Schema.String,
+  ids: Schema.NonEmptyArray(Schema.String),
 });
 
 export type MarkWatchedRequest = typeof MarkWatchedRequest.Type;

@@ -110,7 +110,7 @@ const Handlers = UpnextRpcs.toLayer(
       },
       QueueAdd: ({ url, title }) =>
         watchLater.add(url, Option.fromUndefinedOr(title)),
-      MarkWatched: ({ id }) => watchLater.markWatched(id),
+      MarkWatched: ({ ids }) => watchLater.markWatched(ids),
     });
   }),
 );

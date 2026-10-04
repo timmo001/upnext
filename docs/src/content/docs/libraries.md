@@ -63,6 +63,6 @@ main.pipe(Effect.provide(BunServices.layer), BunRuntime.runMain);
 | `AddChannel`, `RemoveChannel` | Change `channels.yml` |
 | `ListCandidates` | Followed Twitch channels or YouTube subscriptions not in `channels.yml` yet |
 | `QueueAdd` | Saves a URL to watch later |
-| `MarkWatched` | Hides a YouTube upload or removes a saved item |
+| `MarkWatched` | Hides YouTube videos or removes saved items, given a list of IDs |
 
 Calls fail with `RpcClientError` when the daemon isn't reachable rather than waiting for it to come back.

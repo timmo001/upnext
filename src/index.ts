@@ -411,16 +411,22 @@ const auth = Command.make(
 const watched = Command.make(
   "watched",
   {
-    id: Argument.String("id").pipe(
-      Argument.withDescription("The item ID, as shown by feed --json"),
+    ids: Argument.String("id").pipe(
+      Argument.withDescription("Item IDs, as shown by feed --json"),
+      Argument.atLeast(1),
     ),
   },
-  ({ id }) =>
+  ({ ids }) =>
     withDaemon(
       Effect.gen(function* () {
         const client = yield* UpnextClient;
-        yield* client.MarkWatched({ id }).pipe(
-          Effect.catchTag("ItemNotFound", () =>
+
+        if (!Arr.isReadonlyArrayNonEmpty(ids)) {
+          return yield* new CommandError({ message: "Give at least one ID" });
+        }
+
+        yield* client.MarkWatched({ ids }).pipe(
+          Effect.catchTag("ItemNotFound", ({ id }) =>
             Effect.fail(
               new CommandError({
                 message: `Nothing in the feed has the ID ${id}`,
@@ -430,7 +436,7 @@ const watched = Command.make(
         );
       }),
     ),
-).pipe(Command.withDescription("Hide a YouTube upload or remove a saved item"));
+).pipe(Command.withDescription("Hide YouTube videos or remove saved items"));
 
 const reportCliCause = (cause: Cause.Cause<unknown>) => {
   if (Cause.hasInterruptsOnly(cause)) {

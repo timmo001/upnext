@@ -3,6 +3,7 @@ import {
   Context,
   DateTime,
   Effect,
+  HashSet,
   Layer,
   Option,
   String as Str,
@@ -23,8 +24,9 @@ import {
 import { FeedStore } from "../feed/Feed.js";
 import { UpnextState } from "../state/State.js";
 
-// Enough to hide anything still in a channel's feed.
-const maxWatched = 500;
+// Enough to hide anything still in a channel's feed, even after marking
+// every upload from a long subscription list watched.
+const maxWatched = 5000;
 
 const toFeedItem = (item: MediaItem): FeedItem => ({
   item,
@@ -45,7 +47,9 @@ export interface WatchLaterService {
     title: Option.Option<string>,
   ) => Effect.Effect<FeedItem, SourceError>;
   // Removes a saved item, and hides a YouTube video from the feed for good.
-  readonly markWatched: (id: string) => Effect.Effect<void, ItemNotFound>;
+  readonly markWatched: (
+    ids: Arr.NonEmptyReadonlyArray<string>,
+  ) => Effect.Effect<void, ItemNotFound>;
 }
 
 export class WatchLater extends Context.Service<
@@ -181,39 +185,58 @@ export class WatchLater extends Context.Service<
         return toFeedItem(item);
       });
 
+      // Marks nothing unless every ID is a saved item or a YouTube video in
+      // the feed.
       const markWatched = Effect.fn("WatchLater.markWatched")(function* (
-        id: string,
+        ids: Arr.NonEmptyReadonlyArray<string>,
       ) {
-        const isSaved = Arr.some(yield* saved, (item) => item.id === id);
-
-        const inFeed = Arr.some(
-          (yield* feed.get).items,
-          ({ item }) => item.id === id,
+        const savedIds = HashSet.fromIterable(
+          Arr.map(yield* saved, (item) => item.id),
         );
 
-        const isYouTube = Str.startsWith("youtube:")(id);
+        const feedIds = HashSet.fromIterable(
+          Arr.map((yield* feed.get).items, ({ item }) => item.id),
+        );
 
-        if (!isSaved && !(isYouTube && inFeed)) {
-          return yield* new ItemNotFound({ id });
-        }
+        const isYouTube = Str.startsWith("youtube:");
+
+        yield* Option.match(
+          Arr.findFirst(
+            ids,
+            (id) =>
+              !HashSet.has(savedIds, id) &&
+              !(isYouTube(id) && HashSet.has(feedIds, id)),
+          ),
+          {
+            onNone: () => Effect.void,
+            onSome: (id) => Effect.fail(new ItemNotFound({ id })),
+          },
+        );
+
+        const marked = HashSet.fromIterable(ids);
+        const youtubeIds = Arr.filter(ids, isYouTube);
 
         yield* state
           .update((current) => ({
             ...current,
-            saved: Arr.filter(current.saved ?? [], (item) => item.id !== id),
-            watched: isYouTube
-              ? Arr.takeRight(
-                  Arr.append(
-                    Arr.filter(current.watched ?? [], (seen) => seen !== id),
-                    id,
-                  ),
-                  maxWatched,
-                )
-              : (current.watched ?? []),
+            saved: Arr.filter(
+              current.saved ?? [],
+              (item) => !HashSet.has(marked, item.id),
+            ),
+            watched: Arr.takeRight(
+              Arr.appendAll(
+                Arr.filter(
+                  current.watched ?? [],
+                  (seen) => !HashSet.has(marked, seen),
+                ),
+                youtubeIds,
+              ),
+              maxWatched,
+            ),
           }))
           .pipe(Effect.orDie);
 
-        yield* feed.remove(id);
+        yield* feed.remove(ids);
         yield* publish;
       });
 

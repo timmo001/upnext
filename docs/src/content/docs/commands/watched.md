@@ -13,13 +13,13 @@ Every `upnext watched` command and its help, as `--help` prints it. Each also ac
 
 ```text
 DESCRIPTION
-  Hide a YouTube upload or remove a saved item
+  Hide YouTube videos or remove saved items
 
 USAGE
-  upnext watched [flags] <id>
+  upnext watched [flags] <id...>
 
 ARGUMENTS
-  id string    The item ID, as shown by feed --json
+  id... string    Item IDs, as shown by feed --json
 
 FLAGS
   --socket string    Path to the daemon socket (default: $UPNEXT_SOCK, then $XDG_RUNTIME_DIR/upnext/upnext.sock)

@@ -112,7 +112,7 @@ export interface FeedStoreService {
   // Replaces the watch-later queue.
   readonly setSaved: (items: ReadonlyArray<FeedItem>) => Effect.Effect<void>;
   // Drops an item straight away, such as one marked watched.
-  readonly remove: (id: string) => Effect.Effect<void>;
+  readonly remove: (ids: ReadonlyArray<string>) => Effect.Effect<void>;
 }
 
 export class FeedStore extends Context.Service<FeedStore, FeedStoreService>()(
@@ -153,11 +153,17 @@ export class FeedStore extends Context.Service<FeedStore, FeedStoreService>()(
             ...feed,
             items: replaceItems(feed, isSaved, items),
           })),
-        remove: (id) =>
-          SubscriptionRef.update(ref, (feed) => ({
+        remove: (ids) => {
+          const removed = HashSet.fromIterable(ids);
+
+          return SubscriptionRef.update(ref, (feed) => ({
             ...feed,
-            items: Arr.filter(feed.items, ({ item }) => item.id !== id),
-          })),
+            items: Arr.filter(
+              feed.items,
+              ({ item }) => !HashSet.has(removed, item.id),
+            ),
+          }));
+        },
       });
     }),
   );

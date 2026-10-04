@@ -45,5 +45,5 @@ SUBCOMMANDS
   auth       Sign in to a source that needs it
   channel    Add or remove followed channels
   queue      Manage the watch-later queue
-  watched    Hide a YouTube upload or remove a saved item
+  watched    Hide YouTube videos or remove saved items
 ```

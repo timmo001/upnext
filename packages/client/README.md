@@ -75,9 +75,9 @@ const liveCount = Effect.gen(function* () {
 - `AddChannel` and `RemoveChannel` change `channels.yml`.
 - `ListCandidates({ source })` returns the followed Twitch channels or YouTube subscriptions that aren't in `channels.yml` yet, each with the `name` that `AddChannel` takes. It needs that source signed in.
 - `QueueAdd({ url, title })` saves a URL to watch later and returns the saved item.
-- `MarkWatched({ id })` hides a YouTube upload or removes a saved item.
+- `MarkWatched({ ids })` hides YouTube videos or removes saved items, in one state write.
 
-These fail with `SourceError` when a source can't do what was asked, and `MarkWatched` fails with `ItemNotFound` for an unknown ID.
+These fail with `SourceError` when a source can't do what was asked, and `MarkWatched` fails with `ItemNotFound` for an unknown ID, without marking any of them.
 
 ## Errors
 
