@@ -9,9 +9,15 @@ import {
   Order,
   SubscriptionRef,
   Stream,
+  Struct,
 } from "effect";
 import type { MediaKind } from "@timmo001/effect-upnext-shared";
-import type { Feed, FeedItem, SourceStatus } from "@timmo001/effect-upnext";
+import type {
+  Feed,
+  FeedItem,
+  SourceStatus,
+  WatchLaterPlaylist,
+} from "@timmo001/effect-upnext";
 
 const kindRank: Record<MediaKind, number> = {
   live: 0,
@@ -99,6 +105,7 @@ export const replaceSource = (
   status: SourceStatus,
   items: ReadonlyArray<FeedItem>,
 ): Feed => ({
+  ...feed,
   sources: Arr.sort(
     Arr.append(
       Arr.filter(feed.sources, ({ source }) => source !== status.source),
@@ -127,6 +134,10 @@ export interface FeedStoreService {
   readonly setStatus: (status: SourceStatus) => Effect.Effect<void>;
   // Replaces the watch-later queue.
   readonly setSaved: (items: ReadonlyArray<FeedItem>) => Effect.Effect<void>;
+  // Sets or clears the playlist that saved YouTube videos go in.
+  readonly setWatchLaterPlaylist: (
+    playlist: Option.Option<WatchLaterPlaylist>,
+  ) => Effect.Effect<void>;
   // Drops an item straight away, such as one marked watched.
   readonly remove: (ids: ReadonlyArray<string>) => Effect.Effect<void>;
 }
@@ -170,6 +181,13 @@ export class FeedStore extends Context.Service<FeedStore, FeedStoreService>()(
             ...feed,
             items: replaceItems(feed, isSaved, items),
           })),
+        setWatchLaterPlaylist: (playlist) =>
+          SubscriptionRef.update(ref, (feed) =>
+            Option.match(playlist, {
+              onNone: () => Struct.omit(feed, ["watchLaterPlaylist"]),
+              onSome: (watchLaterPlaylist) => ({ ...feed, watchLaterPlaylist }),
+            }),
+          ),
         remove: (ids) => {
           const removed = HashSet.fromIterable(ids);
 

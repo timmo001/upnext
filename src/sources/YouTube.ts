@@ -32,6 +32,7 @@ import {
   make as makeYouTubeClient,
   manageScope,
   type PlaylistEntry,
+  playlistUrl,
   refreshTokens,
   requiredScope,
   type Subscription,
@@ -325,6 +326,25 @@ export class YouTubeSource extends Context.Service<
             });
 
           const problem = Option.orElse(authFailure, () => playlistProblem);
+
+          // The panel links to the playlist, by name once it's been read.
+          yield* Option.match(settings.youtube.watchLaterPlaylist, {
+            onNone: () => Effect.succeedNone,
+            onSome: (playlistId) =>
+              (Option.isNone(signedIn)
+                ? Effect.succeedNone
+                : client
+                    .playlistTitle(playlistId)
+                    .pipe(Effect.orElseSucceed(() => Option.none<string>()))
+              ).pipe(
+                Effect.map((title) =>
+                  Option.some({
+                    url: playlistUrl(playlistId),
+                    title: Option.getOrUndefined(title),
+                  }),
+                ),
+              ),
+          }).pipe(Effect.flatMap(feed.setWatchLaterPlaylist));
 
           const trackedChannels = HashMap.fromIterable(
             Arr.map(

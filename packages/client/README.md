@@ -50,7 +50,7 @@ main.pipe(Effect.provide(NodeServices.layer), NodeRuntime.runMain);
 
 ### Read the feed
 
-`GetFeed` returns every source's last status and every item, live first, then upcoming, new uploads and saved items, newest first within each. Each item comes with `tracked`, which is false for followed Twitch channels missing from `channels.yml`, and `autoOpen`.
+`GetFeed` returns every source's last status and every item, live first, then upcoming, new uploads and saved items, newest first within each. Each item comes with `tracked`, which is false for followed Twitch channels missing from `channels.yml`, and `autoOpen`. When a watch-later playlist is set, `watchLaterPlaylist` has its URL, and its title once the daemon has read it.
 
 ### Watch the feed
 

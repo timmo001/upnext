@@ -34,12 +34,23 @@ export const SourceStatus = Schema.Struct({
 
 export type SourceStatus = typeof SourceStatus.Type;
 
+// The YouTube playlist that saved videos go in. The title is missing until
+// the playlist has been read.
+export const WatchLaterPlaylist = Schema.Struct({
+  url: Schema.String,
+  title: Schema.optional(Schema.String),
+});
+
+export type WatchLaterPlaylist = typeof WatchLaterPlaylist.Type;
+
 // Live items first: tracked Twitch channels, then tracked YouTube channels,
 // each in channels.yml order, then everything else live by viewers. Then
 // upcoming, uploads and saved items, newest first.
 export const Feed = Schema.Struct({
   sources: Schema.Array(SourceStatus),
   items: Schema.Array(FeedItem),
+  // Missing when there's no watch-later playlist set.
+  watchLaterPlaylist: Schema.optional(WatchLaterPlaylist),
 });
 
 export type Feed = typeof Feed.Type;
