@@ -42,8 +42,9 @@ BarWidget {
     ].filter(function(part) { return part.count > 0 })
     return parts.slice(0, vertical ? 1 : Math.max(1, setting("maxCounts", 3)))
   }
-  readonly property string displayText: root.hoverRevealed ? "󰂜 0" : "󰂚"
-  readonly property color displayColor: !upnext || upnext.statusState === "inactive" ? "#a55555" : "#9b9b9b"
+  readonly property bool disconnected: !upnext || upnext.statusState === "inactive"
+  readonly property string displayText: root.hoverRevealed ? "󰒭 0" : "󰒭"
+  readonly property color displayColor: root.disconnected ? "#a55555" : "#9b9b9b"
   readonly property string tooltipText: {
     if (!upnext || upnext.statusState === "inactive") return "Up Next is unavailable"
     var lines = []
