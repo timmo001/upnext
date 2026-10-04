@@ -142,7 +142,7 @@ Google now asks to let Up Next manage your YouTube account, which is the narrowe
 
 Once it's set up:
 
-- Videos in the playlist show in **Watch later**, checked every `youtube.poll_interval` seconds.
+- Videos in the playlist show in **Watch later**, checked every `youtube.poll_interval` seconds. The panel's last row in **Watch later** opens the playlist on YouTube.
 - `upnext queue add` and the panel's **Watch later** menu item add YouTube videos to the playlist. Other links still go in the local queue.
 - Marking a video watched removes it from the playlist.
 - A saved video only shows in **Watch later**, so saving a live stream or an upload moves it out of its other section.
@@ -156,6 +156,6 @@ The YouTube Data API gives each project 10,000 units of quota a day. Each check,
 
 - 1 unit per 50 subscriptions, to read them.
 - 1 unit per 50 videos to look up. Up Next looks up every video in a `channels.yml` channel's feed, but only the last 7 days of uploads from other subscriptions.
-- 1 unit per 50 videos in the watch-later playlist, if you've set one. Adding or removing a video costs 50 units each time.
+- 1 unit per 50 videos in the watch-later playlist, and 1 for its title, if you've set one. Adding or removing a video costs 50 units each time.
 
 With a few hundred subscriptions that comes to around 2,000 units a day, well within the limit. If you do hit it, the YouTube status shows the error until quota resets at midnight Pacific time. Raise `youtube.poll_interval` to check less often.
