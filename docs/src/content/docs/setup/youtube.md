@@ -5,7 +5,7 @@ description: Add YouTube channels, turn on live stream checks with an API key an
 
 YouTube works in three steps, and each one adds more:
 
-1. **Channels only.** Up Next reads each channel's RSS feed, which needs no account. Uploads from the last 7 days show in the feed, and new ones notify you.
+1. **Channels only.** Up Next reads each channel's RSS feed, which needs no account. Uploads from the last 7 days show in the feed. Set a channel's `notify.uploads` in `channels.yml` to be notified about new ones.
 2. **An API key.** Up Next also looks the videos up, so live streams show as live, with viewer counts, and scheduled streams as upcoming.
 3. **Signing in with Google.** Up Next also reads your subscriptions. Uploads and live streams from subscriptions that aren't in `channels.yml` show in their own group, and `upnext channel add` can pick from them.
 

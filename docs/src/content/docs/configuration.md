@@ -53,7 +53,7 @@ Live notifications are only for channels in `channels.yml`. Twitch's live events
 
 See [Set up YouTube](/setup/youtube) to add channels, get an API key and sign in with Google.
 
-Notifications are only for channels in `channels.yml`. Once you've signed in, your other subscriptions' uploads and live streams show too, without notifying you.
+Notifications are only for channels in `channels.yml`, and each channel's `notify` setting picks live streams, uploads or both. Once you've signed in, your other subscriptions' uploads and live streams show too, without notifying you.
 
 ## channels.yml
 
@@ -64,13 +64,18 @@ twitch:
   - name: another_streamer
 youtube:
   - id: UCxxxxxxxxxxxxxxxxxxxxxx
+    notify:
+      live: true
+      uploads: false
 ```
 
 - `twitch`: Twitch logins, in the order they show in the feed. Up Next also shows every channel you follow that's live, after these.
 - `youtube`: YouTube channel IDs, the part after `/channel/` in a channel's URL. Their live streams come after your Twitch channels'.
 - `open`: open the channel in your browser as soon as it goes live. Defaults to `false`.
+- `notify.live`: YouTube only. Notify when the channel goes live. Defaults to `true`.
+- `notify.uploads`: YouTube only. Notify about the channel's new uploads. Defaults to `false`.
 
-`upnext channel add` and `upnext channel remove` change this file for you. Run `upnext channel add` without a name to pick from the channels you follow or subscribe to.
+`upnext channel add` and `upnext channel remove` change this file for you. Run `upnext channel add` without a name to pick from the channels you follow or subscribe to. When you add YouTube channels in a terminal, it asks which notifications you want for each one, unless you pass `--notify-live` or `--notify-uploads` (or their `--no-` forms). The Omarchy panel uses the defaults.
 
 If you keep `channels.yml` in a dotfiles repository and link it into place with stow, Up Next writes changes through the link, so your repository stays the source.
 
