@@ -16,6 +16,7 @@ on:
       - .scripts/linux/PKGBUILD
       - .scripts/linux/upnext.install
       - .scripts/linux/upnext.service
+      - .scripts/linux/upnext.svg
       - .github/workflows/publish-arch-git.yml
   workflow_dispatch: {}
 

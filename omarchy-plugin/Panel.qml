@@ -382,11 +382,14 @@ Panel {
             fontFamily: root.contentFontFamily
             iconOpacity: root.service && root.service.connected ? 1 : 0.5
             iconComponent: Component {
-              Text {
-                text: "󰂚"
-                color: root.service && root.service.statusState === "live" ? root.liveColor : root.contentForeground
-                font.family: root.contentFontFamily
-                font.pixelSize: Style.font.display
+              Image {
+                source: Qt.resolvedUrl("logo.svg")
+                width: Style.font.display * 1.4
+                height: width
+                sourceSize.width: width * 2
+                sourceSize.height: height * 2
+                fillMode: Image.PreserveAspectFit
+                smooth: true
               }
             }
           }

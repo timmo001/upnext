@@ -30,6 +30,7 @@ mkdir -p "$plugin_dir"
 rsync -a \
   --include='*/' \
   --include='*.qml' \
+  --include='*.svg' \
   --include='manifest.json' \
   --exclude='*' \
   "$source_dir/" "$plugin_dir/"

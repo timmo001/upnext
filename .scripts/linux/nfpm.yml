@@ -25,6 +25,8 @@ contents:
       mode: 0755
   - src: .scripts/linux/upnext.service
     dst: /usr/lib/systemd/user/upnext.service
+  - src: .scripts/linux/upnext.svg
+    dst: /usr/share/icons/hicolor/scalable/apps/upnext.svg
   - src: .scripts/linux/completions/upnext.bash
     dst: /usr/share/bash-completion/completions/upnext
   - src: .scripts/linux/completions/upnext.fish

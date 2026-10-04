@@ -20,6 +20,8 @@ const appName = "Up Next";
 
 const omarchyGlyph = "󰕃";
 
+const iconFile = "/usr/share/icons/hicolor/scalable/apps/upnext.svg";
+
 export interface Notification {
   readonly title: string;
   readonly body?: string;
@@ -69,6 +71,18 @@ export class Desktop extends Context.Service<Desktop, DesktopService>()(
       const host = yield* Config.option(Config.String("OMARCHY_HOST"));
       const home = yield* Config.String("HOME").pipe(Config.withDefault(""));
       const browser = browserCommand(host);
+
+      const icon = (yield* fs
+        .exists(iconFile)
+        .pipe(Effect.orElseSucceed(() => false)))
+        ? Option.some(iconFile)
+        : Option.none();
+
+      const iconArgs = (flag: string) =>
+        Option.match(icon, {
+          onNone: () => [],
+          onSome: (file) => [flag, file],
+        });
 
       const run = (command: string, args: ReadonlyArray<string>) =>
         spawner
@@ -139,6 +153,7 @@ export class Desktop extends Context.Service<Desktop, DesktopService>()(
           "send",
           "-g",
           omarchyGlyph,
+          ...iconArgs("-i"),
           "--app-name",
           appName,
           ...Option.match(clickCommand(notification), {
@@ -154,6 +169,7 @@ export class Desktop extends Context.Service<Desktop, DesktopService>()(
         run("notify-send", [
           "--app-name",
           appName,
+          ...iconArgs("--icon"),
           notification.title,
           ...(notification.body ? [notification.body] : []),
         ]);

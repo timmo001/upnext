@@ -204,6 +204,7 @@ jobs:
           extraFiles: |-
             LICENSE
             .scripts/linux/upnext.service
+            .scripts/linux/upnext.svg
             .scripts/linux/upnext.install
 
       - name: Upload package files
