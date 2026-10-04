@@ -20,16 +20,17 @@ depends = ["install"]
 run = "bun run build"
 
 [tasks."build:packages"]
-description = "Build @timmo001/effect-upnext-shared and @timmo001/effect-upnext into their dist directories"
+description = "Build the publishable packages into their dist directories"
 depends = ["install"]
 run = "bun run build:packages"
 
 [tasks."version:sync"]
-description = "Pin the client's @timmo001/effect-upnext-shared dependency to the shared release version"
+description = "Pin each package's @timmo001/effect-upnext-shared dependency to the shared release version"
 run = '''
 version="$(bun pm pkg get version | tr -d '"')"
-cd packages/client
-bun pm pkg set "dependencies.@timmo001/effect-upnext-shared=$version"
+for package in packages/twitch packages/client; do
+  (cd "$package" && bun pm pkg set "dependencies.@timmo001/effect-upnext-shared=$version")
+done
 '''
 
 [tasks.typecheck]

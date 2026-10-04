@@ -17,13 +17,14 @@
     "format:check": "prettier --check \"src/**/*.ts\" \"packages/*/src/**/*.ts\" \"scripts/**/*.ts\"",
     "check": "bun run lint && bun run typecheck && bun run format:check",
     "prepare": "effect-tsgo patch --typescript --force=false",
-    "build:packages": "bun run --cwd packages/shared build && bun run --cwd packages/client build"
+    "build:packages": "bun run --cwd packages/shared build && bun run --cwd packages/twitch build && bun run --cwd packages/client build"
   },
   "dependencies": {
     "@effect/platform-bun": "4.0.0",
     "@timmo001/effect-upnext": "workspace:*",
     "@timmo001/effect-upnext-shared": "workspace:*",
-    "effect": "4.0.0"
+    "effect": "4.0.0",
+    "@timmo001/effect-twitch": "workspace:*"
   },
   "devDependencies": {
     "@effect/tsgo": "0.48.0",

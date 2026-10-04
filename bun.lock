@@ -6,6 +6,7 @@
       "name": "upnext",
       "dependencies": {
         "@effect/platform-bun": "4.0.0",
+        "@timmo001/effect-twitch": "workspace:*",
         "@timmo001/effect-upnext": "workspace:*",
         "@timmo001/effect-upnext-shared": "workspace:*",
         "effect": "4.0.0",
@@ -38,6 +39,19 @@
     "packages/shared": {
       "name": "@timmo001/effect-upnext-shared",
       "version": "0.1.0",
+      "devDependencies": {
+        "effect": "4.0.0",
+      },
+      "peerDependencies": {
+        "effect": "4.0.0",
+      },
+    },
+    "packages/twitch": {
+      "name": "@timmo001/effect-twitch",
+      "version": "0.1.0",
+      "dependencies": {
+        "@timmo001/effect-upnext-shared": "0.1.0",
+      },
       "devDependencies": {
         "effect": "4.0.0",
       },
@@ -118,6 +132,8 @@
     "@oxlint/binding-win32-x64-msvc": ["@oxlint/binding-win32-x64-msvc@1.86.0", "", { "os": "win32", "cpu": "x64" }, "sha512-az4dzifCRzES1crwu6pDFXzJTIanrdxXFL9TbiJWrx9LKcuacbR83aPvxDA1LKLNswi/RoqitC7Afcflhu3zBQ=="],
 
     "@oxlint/plugins": ["@oxlint/plugins@1.86.0", "", {}, "sha512-JeAiaaRMyUiUEQHQ7zBsJn1aEdbLyt1HJsOs4XKIIlATNxcvWRrRxneZA+RF4G03cQobq3IhTqSfyLhOFv03qA=="],
+
+    "@timmo001/effect-twitch": ["@timmo001/effect-twitch@workspace:packages/twitch"],
 
     "@timmo001/effect-upnext": ["@timmo001/effect-upnext@workspace:packages/client"],
 
