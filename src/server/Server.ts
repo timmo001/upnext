@@ -17,16 +17,34 @@ import type { Source } from "@timmo001/effect-upnext-shared";
 import { Desktop } from "../desktop/Desktop.js";
 import { FeedStore } from "../feed/Feed.js";
 import { TwitchSource } from "../sources/Twitch.js";
+import { YouTubeSource } from "../sources/YouTube.js";
 import { UpnextState } from "../state/State.js";
 
-// Sources land in later stages; until then their requests fail plainly.
-const notAvailable = (source: Source | undefined) =>
-  Effect.fail(new SourceError({ source, message: "not available yet" }));
+// The watch-later queue lands in a later stage; until then it fails plainly.
+const notAvailable = () =>
+  Effect.fail(new SourceError({ message: "not available yet" }));
 
 const Handlers = UpnextRpcs.toLayer(
   Effect.gen(function* () {
     const feed = yield* FeedStore;
     const twitch = yield* TwitchSource;
+    const youtube = yield* YouTubeSource;
+
+    const recheckSource = (source: Source, open: boolean) => {
+      switch (source) {
+        case "twitch":
+          return twitch.recheck(open);
+        case "youtube":
+          return youtube.recheck(open);
+        case "link":
+          return Effect.void;
+      }
+    };
+
+    const noChannels = (source: Source) =>
+      Effect.fail(
+        new SourceError({ source, message: `${source} has no channels` }),
+      );
 
     return UpnextRpcs.of({
       GetFeed: () => feed.get,
@@ -35,15 +53,17 @@ const Handlers = UpnextRpcs.toLayer(
         Option.match(Option.fromUndefinedOr(source), {
           // A source that isn't running doesn't fail a recheck of them all.
           onNone: () =>
-            twitch
-              .recheck(open)
-              .pipe(
-                Effect.catch((error) =>
-                  Effect.logDebug("Skipped recheck", error.message),
+            Effect.forEach(
+              ["twitch", "youtube"] as const,
+              (each) =>
+                recheckSource(each, open).pipe(
+                  Effect.catch((error) =>
+                    Effect.logDebug("Skipped recheck", error.message),
+                  ),
                 ),
-              ),
-          onSome: (only) =>
-            only === "twitch" ? twitch.recheck(open) : notAvailable(only),
+              { concurrency: "unbounded", discard: true },
+            ),
+          onSome: (only) => recheckSource(only, open),
         }),
       SignIn: ({ source }) =>
         source === "twitch"
@@ -54,13 +74,27 @@ const Handlers = UpnextRpcs.toLayer(
                 message: `${source} doesn't need signing in`,
               }),
             ),
-      AddChannel: ({ source, name, open }) =>
-        source === "twitch"
-          ? twitch.addChannel(name, Option.fromUndefinedOr(open))
-          : notAvailable(source),
-      RemoveChannel: ({ source, name }) =>
-        source === "twitch" ? twitch.removeChannel(name) : notAvailable(source),
-      QueueAdd: () => notAvailable(undefined),
+      AddChannel: ({ source, name, open }) => {
+        switch (source) {
+          case "twitch":
+            return twitch.addChannel(name, Option.fromUndefinedOr(open));
+          case "youtube":
+            return youtube.addChannel(name, Option.fromUndefinedOr(open));
+          case "link":
+            return noChannels(source);
+        }
+      },
+      RemoveChannel: ({ source, name }) => {
+        switch (source) {
+          case "twitch":
+            return twitch.removeChannel(name);
+          case "youtube":
+            return youtube.removeChannel(name);
+          case "link":
+            return noChannels(source);
+        }
+      },
+      QueueAdd: notAvailable,
       MarkWatched: ({ id }) => Effect.fail(new ItemNotFound({ id })),
     });
   }),
@@ -202,7 +236,9 @@ export const serve = (socketPath: string) =>
           secureSocket(socketPath),
         ).pipe(
           Layer.provide(Handlers),
-          Layer.provide(TwitchSource.layer),
+          Layer.provide(
+            Layer.mergeAll(TwitchSource.layer, YouTubeSource.layer),
+          ),
           Layer.provide(
             Layer.mergeAll(
               UpnextState.layer,
