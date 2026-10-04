@@ -3,6 +3,7 @@ import {
   Cause,
   Effect,
   FileSystem,
+  HashSet,
   Layer,
   Option,
   Path,
@@ -187,7 +188,7 @@ export const prepareSocket = Effect.fn("prepareSocket")(function* (
   yield* fs.remove(socketPath, { force: true });
 });
 
-const disconnectCodes = new Set(["ECONNRESET", "EPIPE"]);
+const disconnectCodes = HashSet.make("ECONNRESET", "EPIPE");
 
 const isDisconnect = (error: unknown): error is Socket.SocketError => {
   if (!Socket.isSocketError(error)) {
@@ -204,7 +205,7 @@ const isDisconnect = (error: unknown): error is Socket.SocketError => {
     (Predicate.isTagged(reason, "SocketReadError") ||
       Predicate.isTagged(reason, "SocketWriteError")) &&
     Predicate.hasProperty(reason.cause, "code") &&
-    disconnectCodes.has(String(reason.cause.code))
+    HashSet.has(disconnectCodes, String(reason.cause.code))
   );
 };
 

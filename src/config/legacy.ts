@@ -1,4 +1,12 @@
-import { Array as Arr, Effect, FileSystem, Option, Path, Schema } from "effect";
+import {
+  Array as Arr,
+  Effect,
+  FileSystem,
+  Option,
+  Path,
+  Schema,
+  String as Str,
+} from "effect";
 import {
   ConfigError,
   optionalText,
@@ -45,7 +53,9 @@ const flattenOptional = <A>(value: Option.Option<A> | undefined) =>
 // Keeps a value as written, including ${VAR} references, unless it's blank.
 const keepText = (value: string | undefined) =>
   Option.getOrUndefined(
-    Option.filter(Option.fromUndefinedOr(value), (text) => text.trim() !== ""),
+    Option.filter(Option.fromUndefinedOr(value), (text) =>
+      Str.isNonEmpty(Str.trim(text)),
+    ),
   );
 
 // When the legacy file is a stow link, finds where its replacement belongs in
@@ -71,7 +81,7 @@ const stowedTarget = Effect.fn("stowedTarget")(function* (
   const target = yield* fs.realPath(legacyFile);
   const suffix = path.relative(configHome, legacyFile);
 
-  if (!target.endsWith(`${path.sep}${suffix}`)) {
+  if (!Str.endsWith(`${path.sep}${suffix}`)(target)) {
     yield* Effect.logWarning(
       "Not keeping link: its target isn't laid out like the config home",
       legacyFile,
@@ -83,7 +93,7 @@ const stowedTarget = Effect.fn("stowedTarget")(function* (
 
   return Option.some(
     path.join(
-      target.slice(0, -suffix.length),
+      Str.slice(0, -suffix.length)(target),
       path.relative(configHome, newFile),
     ),
   );
