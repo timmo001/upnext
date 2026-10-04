@@ -52,6 +52,10 @@ import { wakeups } from "./wakeups.js";
 // Uploads older than this drop out of the feed.
 const uploadWindow = Duration.days(7);
 
+// A scheduled stream this far past its start that still isn't live has been
+// abandoned. YouTube keeps listing those as upcoming.
+const upcomingGrace = Duration.hours(2);
+
 const feedConcurrency = 4;
 
 const signInTimeout = Duration.minutes(5);
@@ -286,6 +290,8 @@ export class YouTubeSource extends Context.Service<
           const isRecent = ({ publishedAt }: FeedEntry) =>
             DateTime.isGreaterThanOrEqualTo(publishedAt, cutoff);
 
+          const abandonedBefore = DateTime.subtractDuration(now, upcomingGrace);
+
           // Only recent uploads from other subscriptions are looked up, so
           // a long subscription list stays within the daily API quota.
           const entries = Arr.filter(
@@ -314,7 +320,18 @@ export class YouTubeSource extends Context.Service<
             const item = toMediaItem(entry, HashMap.get(byId, entry.videoId));
             const channel = HashMap.get(trackedChannels, entry.channelId);
 
-            const recent = item.kind !== "upload" || isRecent(entry);
+            const recent =
+              item.kind === "upload"
+                ? isRecent(entry)
+                : item.kind === "live" ||
+                  Option.match(Option.fromUndefinedOr(item.publishedAt), {
+                    onNone: () => true,
+                    onSome: (startsAt) =>
+                      DateTime.isGreaterThanOrEqualTo(
+                        startsAt,
+                        abandonedBefore,
+                      ),
+                  });
 
             // Upcoming streams only show for channels in channels.yml.
             const shown =
