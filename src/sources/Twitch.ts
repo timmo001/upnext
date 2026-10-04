@@ -460,24 +460,25 @@ export class TwitchSource extends Context.Service<
         ),
       );
 
-      const recheck = (open: boolean) =>
-        Effect.flatMap(
-          Ref.get(current),
-          Option.match({
-            onNone: () =>
-              Effect.flatMap(inactiveMessage, (message) =>
-                Effect.fail(twitchError(message)),
+      const recheck = Effect.fn("TwitchSource.recheck")(function* (
+        open: boolean,
+      ) {
+        const session = yield* Ref.get(current);
+
+        if (Option.isNone(session)) {
+          return yield* twitchError(yield* inactiveMessage);
+        }
+
+        yield* session.value
+          .check(open)
+          .pipe(
+            Effect.catchTag("TwitchAuthError", (error) =>
+              requestRestart.pipe(
+                Effect.andThen(Effect.fail(twitchError(error.message))),
               ),
-            onSome: ({ check }) =>
-              check(open).pipe(
-                Effect.catchTag("TwitchAuthError", (error) =>
-                  requestRestart.pipe(
-                    Effect.andThen(Effect.fail(twitchError(error.message))),
-                  ),
-                ),
-              ),
-          }),
-        );
+            ),
+          );
+      });
 
       const signIn = Effect.gen(function* () {
         const found = yield* credentials.pipe(

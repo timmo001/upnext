@@ -233,8 +233,8 @@ export class YouTubeSource extends Context.Service<
         return Option.some(tokens.accessToken);
       });
 
-      const check = (open: boolean) =>
-        Effect.gen(function* () {
+      const check = Effect.fn("YouTubeSource.check")(
+        function* (open: boolean) {
           const settings = yield* config.settings;
           const channels = (yield* config.channels).youtube;
           const now = yield* DateTime.now;
@@ -315,13 +315,11 @@ export class YouTubeSource extends Context.Service<
                             }),
                       ),
                       Effect.catch((error) =>
-                        Effect.succeed(
-                          Option.some(
-                            failureStatus({
-                              _tag: error._tag,
-                              message: `Couldn't read your watch-later playlist: ${error.message}`,
-                            }),
-                          ),
+                        Effect.succeedSome(
+                          failureStatus({
+                            _tag: error._tag,
+                            message: `Couldn't read your watch-later playlist: ${error.message}`,
+                          }),
                         ),
                       ),
                     ),
@@ -583,21 +581,20 @@ export class YouTubeSource extends Context.Service<
           yield* Effect.forEach(toOpen, ({ item }) => desktop.open(item.url), {
             discard: true,
           });
-        }).pipe(
-          Effect.catchTags({
-            ConfigError: (error) =>
-              Effect.flatMap(DateTime.now, (checkedAt) =>
-                feed.setStatus({
-                  source: "youtube",
-                  state: "error",
-                  message: error.message,
-                  checkedAt,
-                }),
-              ),
-          }),
-          Semaphore.withPermit(checking),
-          Effect.withSpan("YouTubeSource.check"),
-        );
+        },
+        Effect.catchTags({
+          ConfigError: (error) =>
+            Effect.flatMap(DateTime.now, (checkedAt) =>
+              feed.setStatus({
+                source: "youtube",
+                state: "error",
+                message: error.message,
+                checkedAt,
+              }),
+            ),
+        }),
+        Semaphore.withPermit(checking),
+      );
 
       const requestCheck = Queue.offer(trigger, undefined).pipe(Effect.asVoid);
 
