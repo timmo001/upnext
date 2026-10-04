@@ -32,17 +32,16 @@ BarWidget {
     && bar.barHovered === true
   readonly property bool shown: !upnext || !hiddenByState || hoverRevealed || opened
   readonly property bool vertical: bar ? bar.vertical : false
-  // Twitch live, YouTube live, then new uploads. Zero counts are left out,
-  // and the lowest priority goes first when there's no room. A warning always
+  // Twitch live, then YouTube live and new uploads together. Zero counts are
+  // left out, and YouTube goes first when there's no room. A warning always
   // shows when a source has a problem.
   readonly property var counts: {
     if (!upnext || !upnext.connected) return []
     var parts = [
       { icon: "󰕃", count: upnext.twitchLiveCount, color: upnext.sourceColors.twitch, gap: false },
-      { icon: "󰗃", count: upnext.youtubeLiveCount, color: upnext.sourceColors.youtube, gap: false },
-      { icon: "󰗃", count: upnext.newUploadCount, color: Qt.darker(upnext.sourceColors.youtube, 1.3), gap: true }
+      { icon: "󰗃", count: upnext.youtubeLiveCount + upnext.newUploadCount, color: upnext.sourceColors.youtube, gap: false }
     ].filter(function(part) { return part.count > 0 })
-    var room = vertical ? 1 : Math.max(1, setting("maxCounts", 3))
+    var room = vertical ? 1 : Math.max(1, setting("maxCounts", 2))
     if (!hasIssues) return parts.slice(0, room)
     var warning = { icon: "󰀦", count: "", color: warningColor, gap: parts.length > 0 }
     return vertical ? [warning] : parts.slice(0, room).concat([warning])

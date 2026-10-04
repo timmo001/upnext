@@ -70,8 +70,8 @@ omarchy-shell timmo.upnext youtube
 - `primaryOutput`: optional output name used when `primaryOnly` is enabled;
   the first available output is used when this is empty or unavailable
 - `revealOnHover`: reveal the normally hidden widget while hovering the bar
-- `maxCounts`: how many counts the widget shows, from 1 to 3; the new upload
-  count drops off first, then YouTube live
+- `maxCounts`: how many counts the widget shows, from 1 to 2; YouTube live
+  streams and new uploads share one count, which drops off first
 
 Credentials, channels, auto-open, polling and notifications stay in Up Next's
 `~/.config/upnext/config.yml` and `channels.yml`. They are not plugin settings.

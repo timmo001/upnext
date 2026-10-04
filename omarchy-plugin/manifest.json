@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "timmo.upnext",
   "name": "Up Next",
-  "version": "2.6.4",
+  "version": "2.6.5",
   "author": "Timmo",
   "license": "Apache-2.0",
   "description": "Twitch live channels, YouTube uploads and a watch-later queue in one feed",
@@ -25,7 +25,7 @@
       "primaryOnly": false,
       "primaryOutput": "",
       "revealOnHover": true,
-      "maxCounts": 3
+      "maxCounts": 2
     },
     "schema": [
       {
@@ -52,10 +52,10 @@
         "type": "integer",
         "label": "Counts to show",
         "min": 1,
-        "max": 3,
+        "max": 2,
         "step": 1,
-        "defaultValue": 3,
-        "description": "Twitch live, YouTube live and new uploads, in that order. Lower counts drop off first."
+        "defaultValue": 2,
+        "description": "Twitch live, then YouTube live and new uploads together. YouTube drops off first."
       }
     ]
   }
