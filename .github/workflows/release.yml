@@ -93,6 +93,36 @@ jobs:
       # The JSR entry resolves @timmo001/effect-upnext-shared from the workspace, so build it too.
       check-command: cd ../.. && bun run check && bun run test && bun run build:packages
 
+  youtube-npm:
+    name: effect-youtube npm
+    needs:
+      - tools
+      - shared-npm
+    permissions:
+      contents: read
+      id-token: write
+    uses: timmo001/workflows/.github/workflows/publish-npm-package.yml@f72d1eb6c310502499f5551d65ceca1e478eb266 # 20261003.0
+    with:
+      bun-version: ${{ needs.tools.outputs.bun }}
+      node-version: ${{ needs.tools.outputs.node }}
+      package-path: packages/youtube
+      check-command: cd ../.. && bun run check && bun run test
+
+  youtube-jsr:
+    name: effect-youtube JSR
+    needs:
+      - tools
+      - shared-jsr
+    permissions:
+      contents: read
+      id-token: write
+    uses: timmo001/workflows/.github/workflows/publish-jsr-package.yml@f72d1eb6c310502499f5551d65ceca1e478eb266 # 20261003.0
+    with:
+      bun-version: ${{ needs.tools.outputs.bun }}
+      package-path: packages/youtube
+      # The JSR entry resolves @timmo001/effect-upnext-shared from the workspace, so build it too.
+      check-command: cd ../.. && bun run check && bun run test && bun run build:packages
+
   # The client pins @timmo001/effect-upnext-shared to this release, so publish it once effect-upnext-shared is out.
   client-npm:
     name: effect-upnext npm

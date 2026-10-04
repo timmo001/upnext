@@ -1,0 +1,57 @@
+{
+  "name": "@timmo001/effect-youtube",
+  "version": "0.1.0",
+  "description": "Effect client for YouTube: channel feeds, live and upcoming streams, oEmbed and upnext media items",
+  "keywords": [
+    "effect",
+    "youtube",
+    "rss",
+    "upnext"
+  ],
+  "homepage": "https://github.com/timmo001/upnext/tree/main/packages/youtube#readme",
+  "bugs": {
+    "url": "https://github.com/timmo001/upnext/issues"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/timmo001/upnext.git",
+    "directory": "packages/youtube"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "bun": "./src/index.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "dist",
+    "README.md",
+    "!src/**/*.test.ts"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public",
+    "provenance": true
+  },
+  "scripts": {
+    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "prepack": "bun run build"
+  },
+  "peerDependencies": {
+    "effect": "4.0.0"
+  },
+  "dependencies": {
+    "@timmo001/effect-upnext-shared": "0.1.0",
+    "fast-xml-parser": "5.11.2"
+  },
+  "devDependencies": {
+    "effect": "4.0.0"
+  }
+}

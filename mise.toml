@@ -28,7 +28,7 @@ run = "bun run build:packages"
 description = "Pin each package's @timmo001/effect-upnext-shared dependency to the shared release version"
 run = '''
 version="$(bun pm pkg get version | tr -d '"')"
-for package in packages/twitch packages/client; do
+for package in packages/twitch packages/youtube packages/client; do
   (cd "$package" && bun pm pkg set "dependencies.@timmo001/effect-upnext-shared=$version")
 done
 '''

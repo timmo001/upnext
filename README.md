@@ -14,6 +14,7 @@ See the [documentation](https://upnext.timmo.dev) to install, configure and use 
 | --- | --- |
 | [`@timmo001/effect-upnext`](packages/client) | Effect client and protocol for the daemon socket |
 | [`@timmo001/effect-twitch`](packages/twitch) | Effect client for Twitch sign-in, Helix and EventSub live events |
+| [`@timmo001/effect-youtube`](packages/youtube) | Effect client for YouTube channel feeds, live streams and oEmbed |
 | [`@timmo001/effect-upnext-shared`](packages/shared) | The media item schemas every source and client shares |
 
 ## Licence
