@@ -11,11 +11,14 @@ import {
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 import { XMLParser } from "fast-xml-parser";
 import { type FeedEntry, VideoDetails } from "./Media.js";
-import { YouTubeError } from "./YouTubeError.js";
+import { YouTubeAuthError, YouTubeError } from "./YouTubeError.js";
 
 const feedEndpoint = "https://www.youtube.com/feeds/videos.xml";
 
 const videosEndpoint = "https://www.googleapis.com/youtube/v3/videos";
+
+const subscriptionsEndpoint =
+  "https://www.googleapis.com/youtube/v3/subscriptions";
 
 const oembedEndpoint = "https://www.youtube.com/oembed";
 
@@ -49,6 +52,26 @@ const VideosResponse = Schema.Struct({
   items: Schema.Array(VideoDetails),
 });
 
+// A channel the signed-in account subscribes to.
+export const Subscription = Schema.Struct({
+  channelId: Schema.String,
+  title: Schema.String,
+});
+
+export type Subscription = typeof Subscription.Type;
+
+const SubscriptionsResponse = Schema.Struct({
+  items: Schema.Array(
+    Schema.Struct({
+      snippet: Schema.Struct({
+        title: Schema.String,
+        resourceId: Schema.Struct({ channelId: Schema.String }),
+      }),
+    }),
+  ),
+  nextPageToken: Schema.optional(Schema.String),
+});
+
 const ApiErrorBody = Schema.Struct({
   error: Schema.Struct({ message: Schema.String }),
 });
@@ -63,20 +86,31 @@ export const OEmbed = Schema.Struct({
 export type OEmbed = typeof OEmbed.Type;
 
 export interface YouTubeClientOptions {
-  // Needed to look up videos. Feeds and oEmbed work without one.
+  // Needed to look up videos without signing in. Feeds and oEmbed work
+  // without one.
   readonly apiKey: Option.Option<Redacted.Redacted>;
+  // From a Google sign-in. Reads subscriptions, and looks up videos when
+  // there's no API key.
+  readonly accessToken?: Option.Option<Redacted.Redacted>;
 }
 
 export interface YouTubeClientService {
+  // Whether videos can be looked up, with an API key or a sign-in.
   readonly hasApiKey: boolean;
   // The latest 15 uploads, newest first, from a channel's RSS feed.
   readonly channelFeed: (
     channelId: string,
   ) => Effect.Effect<ReadonlyArray<FeedEntry>, YouTubeError>;
-  // Live state and times for each video, 50 at a time. Needs an API key.
+  // Live state and times for each video, 50 at a time. Needs an API key or a
+  // sign-in.
   readonly videos: (
     videoIds: ReadonlyArray<string>,
   ) => Effect.Effect<ReadonlyArray<VideoDetails>, YouTubeError>;
+  // Every channel the signed-in account subscribes to. Needs a sign-in.
+  readonly subscriptions: Effect.Effect<
+    ReadonlyArray<Subscription>,
+    YouTubeError | YouTubeAuthError
+  >;
   readonly oembed: (url: string) => Effect.Effect<OEmbed, YouTubeError>;
 }
 
@@ -150,14 +184,39 @@ export const make = Effect.fn("YouTubeClient.make")(function* (
     );
   };
 
-  // The key goes in a header, so it never shows up in a logged URL.
+  // The key goes in a header, so it never shows up in a logged URL. Without
+  // a key, the sign-in's token is used instead.
+  const apiKey = Option.filter(options.apiKey, (key) =>
+    Str.isNonEmpty(Redacted.value(key)),
+  );
+
+  const accessToken = Option.filter(
+    options.accessToken ?? Option.none(),
+    (token) => Str.isNonEmpty(Redacted.value(token)),
+  );
+
+  const bearer = (token: Redacted.Redacted) =>
+    HttpClientRequest.setHeader(
+      "Authorization",
+      `Bearer ${Redacted.value(token)}`,
+    );
+
+  const authenticate = Option.orElse(
+    Option.map(apiKey, (key) =>
+      HttpClientRequest.setHeader("X-Goog-Api-Key", Redacted.value(key)),
+    ),
+    () => Option.map(accessToken, bearer),
+  );
+
   const videos = (videoIds: ReadonlyArray<string>) =>
-    Option.match(options.apiKey, {
+    Option.match(authenticate, {
       onNone: () =>
         Effect.fail(
-          new YouTubeError({ message: "looking up videos needs an API key" }),
+          new YouTubeError({
+            message: "looking up videos needs an API key or a sign-in",
+          }),
         ),
-      onSome: (apiKey) =>
+      onSome: (withAuth) =>
         Effect.forEach(
           Arr.chunksOf(Arr.dedupe(videoIds), maxPerRequest),
           (chunk) =>
@@ -169,10 +228,7 @@ export const make = Effect.fn("YouTubeClient.make")(function* (
                   id: Arr.join(chunk, ","),
                   maxResults: String(maxPerRequest),
                 }),
-                HttpClientRequest.setHeader(
-                  "X-Goog-Api-Key",
-                  Redacted.value(apiKey),
-                ),
+                withAuth,
               ),
             ).pipe(
               Effect.flatMap((response) =>
@@ -184,6 +240,66 @@ export const make = Effect.fn("YouTubeClient.make")(function* (
             ),
         ).pipe(Effect.map(Arr.flatten)),
     }).pipe(Effect.withSpan("YouTubeClient.videos"));
+
+  const subscriptionsPage = (
+    token: Redacted.Redacted,
+    pageToken: Option.Option<string>,
+  ): Effect.Effect<
+    ReadonlyArray<Subscription>,
+    YouTubeError | YouTubeAuthError
+  > =>
+    fetch(
+      "read subscriptions",
+      HttpClientRequest.get(subscriptionsEndpoint).pipe(
+        HttpClientRequest.setUrlParams({
+          part: "snippet",
+          mine: "true",
+          maxResults: String(maxPerRequest),
+          ...Option.match(pageToken, {
+            onNone: () => ({}),
+            onSome: (value) => ({ pageToken: value }),
+          }),
+        }),
+        bearer(token),
+      ),
+    ).pipe(
+      Effect.catchIf(
+        (error) => error.status === 401,
+        () =>
+          Effect.fail(
+            new YouTubeAuthError({ message: "Google rejected the sign-in" }),
+          ),
+      ),
+      Effect.flatMap((response) =>
+        HttpClientResponse.schemaBodyJson(SubscriptionsResponse)(response).pipe(
+          Effect.mapError(failed("read subscriptions")),
+        ),
+      ),
+      Effect.flatMap(({ items, nextPageToken }) => {
+        const page = Arr.map(items, ({ snippet }): Subscription => ({
+          channelId: snippet.resourceId.channelId,
+          title: snippet.title,
+        }));
+
+        return Option.match(Option.fromUndefinedOr(nextPageToken), {
+          onNone: () => Effect.succeed(page),
+          onSome: (next) =>
+            Effect.map(subscriptionsPage(token, Option.some(next)), (rest) =>
+              Arr.appendAll(page, rest),
+            ),
+        });
+      }),
+    );
+
+  const subscriptions = Option.match(accessToken, {
+    onNone: () =>
+      Effect.fail(
+        new YouTubeAuthError({
+          message: "reading subscriptions needs a sign-in",
+        }),
+      ),
+    onSome: (token) => subscriptionsPage(token, Option.none()),
+  }).pipe(Effect.withSpan("YouTubeClient.subscriptions"));
 
   const oembed = (url: string) =>
     fetch(
@@ -201,13 +317,10 @@ export const make = Effect.fn("YouTubeClient.make")(function* (
     );
 
   return {
-    hasApiKey: Option.isSome(
-      Option.filter(options.apiKey, (key) =>
-        Str.isNonEmpty(Redacted.value(key)),
-      ),
-    ),
+    hasApiKey: Option.isSome(authenticate),
     channelFeed,
     videos,
+    subscriptions,
     oembed,
   } satisfies YouTubeClientService;
 });

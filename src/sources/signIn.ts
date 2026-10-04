@@ -3,11 +3,28 @@ import { Deferred, Effect, Option } from "effect";
 import { HttpServerRequest, HttpServerResponse } from "effect/http";
 import { SourceError } from "@timmo001/effect-upnext";
 
+export interface SignInTarget {
+  readonly source: "twitch" | "youtube";
+  // Shown in messages, such as Twitch or Google.
+  readonly provider: string;
+  readonly redirectUri: string;
+}
+
 // Must match a redirect URL registered on the Twitch app. twitch-notifications
 // used the same one, so existing apps keep working.
-export const redirectUri = "http://localhost:8080/oauth/callback";
+export const twitchSignIn: SignInTarget = {
+  source: "twitch",
+  provider: "Twitch",
+  redirectUri: "http://localhost:8080/oauth/callback",
+};
 
-const callback = new URL(redirectUri);
+// Google lets a desktop app's client redirect to any loopback port without
+// registering it.
+export const youtubeSignIn: SignInTarget = {
+  source: "youtube",
+  provider: "Google",
+  redirectUri: "http://127.0.0.1:8081/oauth/callback",
+};
 
 const htmlPage = (message: string, status = 200) =>
   HttpServerResponse.text(
@@ -15,14 +32,17 @@ const htmlPage = (message: string, status = 200) =>
     { status, contentType: "text/html" },
   );
 
-const signInFailed = (message: string) =>
-  new SourceError({ source: "twitch", message });
-
-// Listens for the redirect back from Twitch for as long as the scope is open.
-// Returns the code once Twitch sends it.
+// Listens for the redirect back from the provider for as long as the scope is
+// open. Returns the code once it arrives.
 export const listenForCode = Effect.fn("listenForCode")(function* (
+  target: SignInTarget,
   state: string,
 ) {
+  const callback = new URL(target.redirectUri);
+
+  const signInFailed = (message: string) =>
+    new SourceError({ source: target.source, message });
+
   const code = yield* Deferred.make<string, SourceError>();
 
   const server = yield* BunHttpServer.make({
@@ -50,7 +70,7 @@ export const listenForCode = Effect.fn("listenForCode")(function* (
 
       if (!Option.contains(param("state"), state)) {
         return htmlPage(
-          "This sign-in link has expired. Run upnext auth twitch again.",
+          `This sign-in link has expired. Run upnext auth ${target.source} again.`,
           400,
         );
       }
@@ -62,7 +82,9 @@ export const listenForCode = Effect.fn("listenForCode")(function* (
       if (Option.isSome(error)) {
         yield* Deferred.fail(
           code,
-          signInFailed(`Twitch refused the sign-in: ${error.value}`),
+          signInFailed(
+            `${target.provider} refused the sign-in: ${error.value}`,
+          ),
         );
 
         return htmlPage("Sign-in cancelled.");
@@ -70,12 +92,14 @@ export const listenForCode = Effect.fn("listenForCode")(function* (
 
       return yield* Option.match(param("code"), {
         onNone: () =>
-          Effect.succeed(htmlPage("Twitch sent no sign-in code.", 400)),
+          Effect.succeed(
+            htmlPage(`${target.provider} sent no sign-in code.`, 400),
+          ),
         onSome: (value) =>
           Deferred.succeed(code, value).pipe(
             Effect.as(
               htmlPage(
-                "Finishing signing in to Twitch. You can close this tab.",
+                `Finishing signing in to ${target.provider}. You can close this tab.`,
               ),
             ),
           ),

@@ -22,6 +22,11 @@ export const State = Schema.Struct({
       refreshToken: Schema.optional(Schema.String),
     }),
   ),
+  youtube: Schema.optional(
+    Schema.Struct({
+      refreshToken: Schema.optional(Schema.String),
+    }),
+  ),
   // Item IDs marked watched.
   watched: Schema.optional(Schema.Array(Schema.String)),
   // Items saved to watch later.

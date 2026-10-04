@@ -19,6 +19,21 @@ export const ChannelRequest = Schema.Struct({
 
 export type ChannelRequest = typeof ChannelRequest.Type;
 
+export const CandidatesRequest = Schema.Struct({
+  source: Source,
+});
+
+export type CandidatesRequest = typeof CandidatesRequest.Type;
+
+// A followed Twitch channel or YouTube subscription that isn't in
+// channels.yml yet. `name` is what AddChannel takes.
+export const ChannelCandidate = Schema.Struct({
+  name: Schema.String,
+  title: Schema.String,
+});
+
+export type ChannelCandidate = typeof ChannelCandidate.Type;
+
 export const QueueAddRequest = Schema.Struct({
   url: Schema.String,
   title: Schema.optional(Schema.String),

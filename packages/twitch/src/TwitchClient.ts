@@ -22,7 +22,7 @@ import {
   validateToken,
 } from "./Auth.js";
 import { streamOnline, type StreamOnline } from "./EventSub.js";
-import { TwitchStream, TwitchUser } from "./Helix.js";
+import { FollowedChannel, TwitchStream, TwitchUser } from "./Helix.js";
 import { TwitchAuthError, TwitchError } from "./TwitchError.js";
 
 const helixBase = "https://api.twitch.tv/helix";
@@ -48,6 +48,8 @@ const UsersPage = Page(TwitchUser);
 
 const StreamsPage = Page(TwitchStream);
 
+const FollowedChannelsPage = Page(FollowedChannel);
+
 export type TwitchClientError = TwitchError | TwitchAuthError;
 
 export interface TwitchClientOptions extends TwitchCredentials {
@@ -71,6 +73,10 @@ export interface TwitchClientService {
   readonly followedStreams: (
     userId: string,
   ) => Effect.Effect<ReadonlyArray<TwitchStream>, TwitchClientError>;
+  // Every channel the user follows, live or not.
+  readonly followedChannels: (
+    userId: string,
+  ) => Effect.Effect<ReadonlyArray<FollowedChannel>, TwitchClientError>;
   readonly subscribeStreamOnline: (
     sessionId: string,
     broadcasterId: string,
@@ -313,23 +319,23 @@ export const make = Effect.fn("TwitchClient.make")(function* (
       ).pipe(Effect.map(({ data }) => data)),
     ).pipe(Effect.withSpan("TwitchClient.streams"));
 
-  const followedPage = (
-    userId: string,
-    cursor: Option.Option<string>,
-  ): Effect.Effect<ReadonlyArray<TwitchStream>, TwitchClientError> =>
-    get(
-      "/streams/followed",
-      Arr.appendAll(
-        [
-          ["user_id", userId],
-          ["first", String(maxPerRequest)],
-        ] as const,
-        Option.match(cursor, {
-          onNone: () => [],
-          onSome: (after) => [["after", after] as const],
-        }),
-      ),
-      StreamsPage,
+  interface PageOf<A> {
+    readonly data: ReadonlyArray<A>;
+    readonly pagination?: { readonly cursor?: string | undefined } | undefined;
+  }
+
+  // Follows the cursor until a page comes back short.
+  const allPages = <A>(
+    page: (
+      cursor: ReadonlyArray<readonly [string, string]>,
+    ) => Effect.Effect<PageOf<A>, TwitchClientError>,
+    cursor: Option.Option<string> = Option.none(),
+  ): Effect.Effect<ReadonlyArray<A>, TwitchClientError> =>
+    page(
+      Option.match(cursor, {
+        onNone: () => [],
+        onSome: (after) => [["after", after] as const],
+      }),
     ).pipe(
       Effect.flatMap(({ data, pagination }) =>
         Option.match(
@@ -340,7 +346,7 @@ export const make = Effect.fn("TwitchClient.make")(function* (
           {
             onNone: () => Effect.succeed(data),
             onSome: (next) =>
-              Effect.map(followedPage(userId, Option.some(next)), (rest) =>
+              Effect.map(allPages(page, Option.some(next)), (rest) =>
                 Arr.appendAll(data, rest),
               ),
           },
@@ -348,10 +354,29 @@ export const make = Effect.fn("TwitchClient.make")(function* (
       ),
     );
 
+  const firstPage = (userId: string) =>
+    [
+      ["user_id", userId],
+      ["first", String(maxPerRequest)],
+    ] as const;
+
   const followedStreams = (userId: string) =>
-    followedPage(userId, Option.none()).pipe(
-      Effect.withSpan("TwitchClient.followedStreams"),
-    );
+    allPages((cursor) =>
+      get(
+        "/streams/followed",
+        Arr.appendAll(firstPage(userId), cursor),
+        StreamsPage,
+      ),
+    ).pipe(Effect.withSpan("TwitchClient.followedStreams"));
+
+  const followedChannels = (userId: string) =>
+    allPages((cursor) =>
+      get(
+        "/channels/followed",
+        Arr.appendAll(firstPage(userId), cursor),
+        FollowedChannelsPage,
+      ),
+    ).pipe(Effect.withSpan("TwitchClient.followedChannels"));
 
   const subscribeStreamOnline = (sessionId: string, broadcasterId: string) =>
     send(
@@ -374,6 +399,7 @@ export const make = Effect.fn("TwitchClient.make")(function* (
     users,
     streams,
     followedStreams,
+    followedChannels,
     subscribeStreamOnline,
     streamOnline: (broadcasterIds) =>
       streamOnline({ broadcasterIds, subscribe: subscribeStreamOnline }),

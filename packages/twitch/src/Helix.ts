@@ -9,6 +9,14 @@ export const TwitchUser = Schema.Struct({
 
 export type TwitchUser = typeof TwitchUser.Type;
 
+export const FollowedChannel = Schema.Struct({
+  broadcaster_id: Schema.String,
+  broadcaster_login: Schema.String,
+  broadcaster_name: Schema.String,
+});
+
+export type FollowedChannel = typeof FollowedChannel.Type;
+
 export const TwitchStream = Schema.Struct({
   id: Schema.String,
   user_id: Schema.String,

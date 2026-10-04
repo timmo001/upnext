@@ -98,6 +98,10 @@ export const ConfigFile = Schema.Struct({
   youtube: withDefault(
     Schema.Struct({
       api_key: withDefault(Schema.String, ""),
+      // A Google OAuth client of the Desktop app type, for reading
+      // subscriptions.
+      client_id: withDefault(Schema.String, ""),
+      client_secret: withDefault(Schema.String, ""),
       poll_interval: withDefault(Schema.Finite, 600),
     }),
     {},
@@ -131,6 +135,11 @@ export interface Settings {
   };
   readonly youtube: {
     readonly apiKey: Option.Option<Redacted.Redacted>;
+    // None until both the client ID and secret are set.
+    readonly google: Option.Option<{
+      readonly clientId: string;
+      readonly clientSecret: Redacted.Redacted;
+    }>;
     readonly pollInterval: Duration.Duration;
   };
 }
@@ -218,6 +227,8 @@ const toSettings = Effect.fn("toSettings")(function* (
   const clientId = yield* optionalText(file.twitch.client_id);
   const clientSecret = yield* optionalText(file.twitch.client_secret);
   const apiKey = yield* optionalText(file.youtube.api_key);
+  const googleClientId = yield* optionalText(file.youtube.client_id);
+  const googleClientSecret = yield* optionalText(file.youtube.client_secret);
 
   return {
     notifyOnStartup: file.notify_on_startup,
@@ -229,6 +240,14 @@ const toSettings = Effect.fn("toSettings")(function* (
     },
     youtube: {
       apiKey: Option.map(apiKey, Redacted.make),
+      google: Option.zipWith(
+        googleClientId,
+        googleClientSecret,
+        (clientId, clientSecret) => ({
+          clientId,
+          clientSecret: Redacted.make(clientSecret),
+        }),
+      ),
       pollInterval: positiveSeconds(file.youtube.poll_interval, 600),
     },
   } satisfies Settings;

@@ -65,7 +65,12 @@ const expected = {
       client_secret: "secret",
       poll_interval: 30,
     },
-    youtube: { api_key: "", poll_interval: 600 },
+    youtube: {
+      api_key: "",
+      client_id: "",
+      client_secret: "",
+      poll_interval: 600,
+    },
   },
   channels: {
     twitch: [

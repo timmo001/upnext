@@ -14,7 +14,7 @@ import {
   Schema,
   Stream,
 } from "effect";
-import { Argument, CliError, Command, Flag } from "effect/cli";
+import { Argument, CliError, Command, Flag, Prompt } from "effect/cli";
 import { RpcClientError } from "effect/rpc/RpcClientError";
 import packageJson from "../package.json" with { type: "json" };
 import { Source } from "@timmo001/effect-upnext-shared";
@@ -198,21 +198,98 @@ const channelName = Argument.String("name").pipe(
   Argument.withDescription("A Twitch login or a YouTube channel ID"),
 );
 
+const channelSources = ["twitch", "youtube"] as const;
+
+type ChannelSource = (typeof channelSources)[number];
+
+const candidateNoun: Record<ChannelSource, string> = {
+  twitch: "followed Twitch channels",
+  youtube: "YouTube subscriptions",
+};
+
+// Lists followed channels or subscriptions that aren't in channels.yml yet
+// and lets you pick some.
+const pickChannels = (source: ChannelSource) =>
+  Effect.gen(function* () {
+    const client = yield* UpnextClient;
+    const candidates = yield* client.ListCandidates({ source });
+
+    if (Arr.isReadonlyArrayEmpty(candidates)) {
+      return yield* new CommandError({
+        message: `All your ${candidateNoun[source]} are already in channels.yml`,
+      });
+    }
+
+    return yield* Prompt.run(
+      Prompt.MultiSelect({
+        message: `Add ${candidateNoun[source]} (space to pick, enter to add)`,
+        choices: Arr.map(candidates, ({ name, title }) => ({
+          title,
+          value: name,
+          description: name,
+        })),
+        maxPerPage: 15,
+        min: 1,
+      }),
+    );
+  });
+
 const channel = Command.make("channel").pipe(
   Command.withDescription("Add or remove followed channels"),
   Command.withSubcommands([
     Command.make(
       "add",
       {
-        source: sourceArgument,
-        name: channelName,
+        source: Argument.Literals("source", channelSources).pipe(
+          Argument.withDescription(
+            "twitch or youtube. Asks which when left out",
+          ),
+          Argument.optional,
+        ),
+        name: channelName.pipe(
+          Argument.withDescription(
+            "A Twitch login or a YouTube channel ID. Without one, pick from the channels you follow",
+          ),
+          Argument.optional,
+        ),
         open: openFlag("Open the channel as soon as it goes live"),
       },
       ({ source, name, open }) =>
         withDaemon(
           Effect.gen(function* () {
             const client = yield* UpnextClient;
-            yield* client.AddChannel({ source, name, open });
+
+            const chosenSource = yield* Option.match(source, {
+              onNone: () =>
+                Prompt.run(
+                  Prompt.Select({
+                    message: "Add channels from",
+                    choices: [
+                      { title: "Twitch", value: "twitch" as const },
+                      { title: "YouTube", value: "youtube" as const },
+                    ],
+                  }),
+                ),
+              onSome: Effect.succeed,
+            });
+
+            const names = yield* Option.match(name, {
+              onNone: () => pickChannels(chosenSource),
+              onSome: (value) => Effect.succeed([value]),
+            });
+
+            yield* Effect.forEach(
+              names,
+              (each) =>
+                client.AddChannel({ source: chosenSource, name: each, open }),
+              { discard: true },
+            );
+
+            yield* Console.error(
+              names.length === 1
+                ? `Added ${names[0]}`
+                : `Added ${names.length} channels`,
+            );
           }),
         ),
     ).pipe(
@@ -286,8 +363,8 @@ const isSignedIn =
 const auth = Command.make(
   "auth",
   {
-    source: Argument.Literals("source", ["twitch"] as const).pipe(
-      Argument.withDescription("The source to sign in to: twitch"),
+    source: Argument.Literals("source", channelSources).pipe(
+      Argument.withDescription("The source to sign in to: twitch or youtube"),
     ),
   },
   ({ source }) =>

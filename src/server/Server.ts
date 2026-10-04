@@ -63,15 +63,31 @@ const Handlers = UpnextRpcs.toLayer(
             ),
           onSome: (only) => recheckSource(only, open),
         }),
-      SignIn: ({ source }) =>
-        source === "twitch"
-          ? Effect.map(twitch.signIn, (url) => ({ url }))
-          : Effect.fail(
+      SignIn: ({ source }) => {
+        switch (source) {
+          case "twitch":
+            return Effect.map(twitch.signIn, (url) => ({ url }));
+          case "youtube":
+            return Effect.map(youtube.signIn, (url) => ({ url }));
+          case "link":
+            return Effect.fail(
               new SourceError({
                 source,
                 message: `${source} doesn't need signing in`,
               }),
-            ),
+            );
+        }
+      },
+      ListCandidates: ({ source }) => {
+        switch (source) {
+          case "twitch":
+            return twitch.candidates;
+          case "youtube":
+            return youtube.candidates;
+          case "link":
+            return noChannels(source);
+        }
+      },
       AddChannel: ({ source, name, open }) => {
         switch (source) {
           case "twitch":

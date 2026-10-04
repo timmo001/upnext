@@ -1,16 +1,22 @@
 import {
   Array as Arr,
   DateTime,
+  Deferred,
   Duration,
   Effect,
+  Exit,
+  FiberHandle,
   HashMap,
   HashSet,
   Layer,
   Context,
   Option,
+  Predicate,
   Queue,
+  Redacted,
   Ref,
   Result,
+  Scope,
   Semaphore,
   Stream,
   String as Str,
@@ -18,12 +24,19 @@ import {
 import { HttpClient } from "effect/http";
 import type { MediaKind } from "@timmo001/effect-upnext-shared";
 import {
+  authorizeUrl,
+  exchangeCode,
   type FeedEntry,
+  type GoogleTokens,
   make as makeYouTubeClient,
+  refreshTokens,
+  type Subscription,
   toMediaItem,
   type VideoDetails,
+  YouTubeAuthError,
 } from "@timmo001/effect-youtube";
 import {
+  type ChannelCandidate,
   type FeedItem,
   SourceError,
   type SourceStatus,
@@ -32,6 +45,8 @@ import { UpnextConfig } from "../config/Config.js";
 import { Desktop } from "../desktop/Desktop.js";
 import { FeedStore } from "../feed/Feed.js";
 import { UpnextState } from "../state/State.js";
+import { candidateOrder } from "./candidates.js";
+import { listenForCode, youtubeSignIn } from "./signIn.js";
 import { wakeups } from "./wakeups.js";
 
 // Uploads older than this drop out of the feed.
@@ -39,9 +54,19 @@ const uploadWindow = Duration.days(7);
 
 const feedConcurrency = 4;
 
+const signInTimeout = Duration.minutes(5);
+
+// Refresh the access token this long before it expires.
+const refreshMargin = Duration.minutes(1);
+
 const noApiKey = "Set youtube.api_key to see live and upcoming streams";
 
 const noChannels = "Add YouTube channels to channels.yml";
+
+const noGoogleClient =
+  "Set youtube.client_id and youtube.client_secret to sign in";
+
+const signInMessage = "Run upnext auth youtube to see your subscriptions";
 
 const youtubeError = (message: string) =>
   new SourceError({ source: "youtube", message });
@@ -62,6 +87,13 @@ const channelIdFrom = (value: string) => {
 export interface YouTubeSourceService {
   // Checks now. With `open`, opens every live stream set to auto-open.
   readonly recheck: (open: boolean) => Effect.Effect<void, SourceError>;
+  // Starts signing in to Google and returns the page to open.
+  readonly signIn: Effect.Effect<string, SourceError>;
+  // Subscriptions that aren't in channels.yml.
+  readonly candidates: Effect.Effect<
+    ReadonlyArray<ChannelCandidate>,
+    SourceError
+  >;
   readonly addChannel: (
     id: string,
     open: Option.Option<boolean>,
@@ -87,6 +119,10 @@ export class YouTubeSource extends Context.Service<
       const trigger = yield* Queue.sliding<void>(1);
       // False until the first check, which counts as startup.
       const started = yield* Ref.make(false);
+      const signInHandle = yield* FiberHandle.make<void, never>();
+
+      // The access token from the last refresh, kept until it nearly expires.
+      const session = yield* Ref.make(Option.none<GoogleTokens>());
 
       // Channels read at least once. A channel's first read isn't announced,
       // so adding one doesn't announce a week of uploads.
@@ -103,29 +139,125 @@ export class YouTubeSource extends Context.Service<
           sound: true,
         });
 
+      const storedRefreshToken = Effect.map(state.get, ({ youtube }) =>
+        Option.map(
+          Option.filter(
+            Option.fromUndefinedOr(youtube?.refreshToken),
+            Str.isNonEmpty,
+          ),
+          Redacted.make,
+        ),
+      );
+
+      // None when not signed in to Google.
+      const accessToken = Effect.gen(function* () {
+        const { youtube } = yield* config.settings;
+        const refreshToken = yield* storedRefreshToken;
+
+        if (Option.isNone(youtube.google) || Option.isNone(refreshToken)) {
+          return Option.none<Redacted.Redacted>();
+        }
+
+        const now = yield* DateTime.now;
+
+        const cached = Option.filter(yield* Ref.get(session), ({ expiresAt }) =>
+          DateTime.isGreaterThan(
+            expiresAt,
+            DateTime.addDuration(now, refreshMargin),
+          ),
+        );
+
+        if (Option.isSome(cached)) {
+          return Option.some(cached.value.accessToken);
+        }
+
+        const tokens = yield* refreshTokens(
+          youtube.google.value,
+          refreshToken.value,
+        ).pipe(provideHttp);
+
+        yield* Ref.set(session, Option.some(tokens));
+
+        return Option.some(tokens.accessToken);
+      });
+
       const check = (open: boolean) =>
         Effect.gen(function* () {
           const settings = yield* config.settings;
           const channels = (yield* config.channels).youtube;
           const now = yield* DateTime.now;
 
-          if (Arr.isReadonlyArrayEmpty(channels)) {
+          const failureStatus = (error: {
+            readonly _tag: string;
+            readonly message: string;
+          }): SourceStatus =>
+            Predicate.isTagged(error, "YouTubeAuthError")
+              ? {
+                  source: "youtube",
+                  state: "auth-required",
+                  message: `${error.message}. Run upnext auth youtube to sign in again`,
+                  checkedAt: now,
+                }
+              : {
+                  source: "youtube",
+                  state: "error",
+                  message: error.message,
+                  checkedAt: now,
+                };
+
+          const token = yield* Effect.result(accessToken);
+
+          const signedIn = Result.getOrElse(token, () =>
+            Option.none<Redacted.Redacted>(),
+          );
+
+          const client = yield* makeYouTubeClient({
+            apiKey: settings.youtube.apiKey,
+            accessToken: signedIn,
+          }).pipe(provideHttp);
+
+          const subscribed = Option.isSome(signedIn)
+            ? yield* Effect.result(client.subscriptions)
+            : Result.succeed<ReadonlyArray<Subscription>>([]);
+
+          const authFailure = Result.isFailure(token)
+            ? Option.some(failureStatus(token.failure))
+            : Result.isFailure(subscribed)
+              ? Option.some(failureStatus(subscribed.failure))
+              : Option.none<SourceStatus>();
+
+          const trackedChannels = HashMap.fromIterable(
+            Arr.map(
+              channels,
+              ({ id, open }, position) => [id, { open, position }] as const,
+            ),
+          );
+
+          // Channels in channels.yml, then other subscriptions.
+          const targets = Arr.appendAll(
+            Arr.map(channels, ({ id }) => id),
+            Arr.filter(
+              Arr.map(
+                Result.getOrElse(subscribed, () => []),
+                ({ channelId }) => channelId,
+              ),
+              (id) => !HashMap.has(trackedChannels, id),
+            ),
+          );
+
+          if (Arr.isReadonlyArrayEmpty(targets)) {
             yield* feed.setSource(
-              {
+              Option.getOrElse(authFailure, () => ({
                 source: "youtube",
                 state: "disabled",
                 message: noChannels,
                 checkedAt: now,
-              },
+              })),
               [],
             );
 
             return;
           }
-
-          const client = yield* makeYouTubeClient({
-            apiKey: settings.youtube.apiKey,
-          }).pipe(provideHttp);
 
           const watched = HashSet.fromIterable(
             (yield* state.get).watched ?? [],
@@ -137,10 +269,10 @@ export class YouTubeSource extends Context.Service<
           );
 
           const results = yield* Effect.forEach(
-            channels,
-            (channel) =>
-              client.channelFeed(channel.id).pipe(
-                Effect.map((entries) => ({ channel, entries })),
+            targets,
+            (id) =>
+              client.channelFeed(id).pipe(
+                Effect.map((entries) => ({ id, entries })),
                 Effect.result,
               ),
             { concurrency: feedConcurrency },
@@ -149,8 +281,19 @@ export class YouTubeSource extends Context.Service<
           const failures = Arr.getFailures(results);
           const feeds = Arr.getSuccesses(results);
 
+          const cutoff = DateTime.subtractDuration(now, uploadWindow);
+
+          const isRecent = ({ publishedAt }: FeedEntry) =>
+            DateTime.isGreaterThanOrEqualTo(publishedAt, cutoff);
+
+          // Only recent uploads from other subscriptions are looked up, so
+          // a long subscription list stays within the daily API quota.
           const entries = Arr.filter(
-            Arr.flatMap(feeds, ({ entries }) => entries),
+            Arr.flatMap(feeds, ({ id, entries }) =>
+              HashMap.has(trackedChannels, id)
+                ? entries
+                : Arr.filter(entries, isRecent),
+            ),
             ({ videoId }) => !HashSet.has(watched, `youtube:${videoId}`),
           );
 
@@ -167,37 +310,28 @@ export class YouTubeSource extends Context.Service<
             ),
           );
 
-          const trackedChannels = HashMap.fromIterable(
-            Arr.map(
-              channels,
-              ({ id, open }, position) => [id, { open, position }] as const,
-            ),
-          );
-
-          const cutoff = DateTime.subtractDuration(now, uploadWindow);
-
           const fetched = Arr.filterMap(entries, (entry: FeedEntry) => {
             const item = toMediaItem(entry, HashMap.get(byId, entry.videoId));
-
-            const recent =
-              item.kind !== "upload" ||
-              DateTime.isGreaterThanOrEqualTo(entry.publishedAt, cutoff);
-
             const channel = HashMap.get(trackedChannels, entry.channelId);
 
-            return recent
-              ? Result.succeed<FeedItem>({
-                  item,
-                  tracked: true,
-                  ...Option.match(channel, {
-                    onNone: () => ({}),
-                    onSome: ({ position }) => ({ position }),
+            const recent = item.kind !== "upload" || isRecent(entry);
+
+            // Upcoming streams only show for channels in channels.yml.
+            const shown =
+              recent && (Option.isSome(channel) || item.kind !== "upcoming");
+
+            return shown
+              ? Result.succeed<FeedItem>(
+                  Option.match(channel, {
+                    onNone: () => ({ item, tracked: false, autoOpen: false }),
+                    onSome: ({ open, position }) => ({
+                      item,
+                      tracked: true,
+                      position,
+                      autoOpen: open,
+                    }),
                   }),
-                  autoOpen: Option.match(channel, {
-                    onNone: () => false,
-                    onSome: ({ open }) => open,
-                  }),
-                })
+                )
               : Result.failVoid;
           });
 
@@ -206,10 +340,7 @@ export class YouTubeSource extends Context.Service<
           const failedChannels = HashSet.fromIterable(
             Arr.filterMap(results, (result, index) =>
               Result.isFailure(result)
-                ? Result.fromOption(
-                    Option.map(Arr.get(channels, index), ({ id }) => id),
-                    () => undefined,
-                  )
+                ? Result.fromOption(Arr.get(targets, index), () => undefined)
                 : Result.failVoid,
             ),
           );
@@ -220,30 +351,42 @@ export class YouTubeSource extends Context.Service<
 
           const items = Arr.appendAll(fetched, kept);
 
-          const status: SourceStatus = Arr.match(failures, {
-            onEmpty: () =>
-              Result.isFailure(details)
-                ? {
+          const okStatus: SourceStatus =
+            Option.isSome(settings.youtube.google) && Option.isNone(signedIn)
+              ? {
+                  source: "youtube",
+                  state: "ok",
+                  message: signInMessage,
+                  checkedAt: now,
+                }
+              : client.hasApiKey
+                ? { source: "youtube", state: "ok", checkedAt: now }
+                : {
                     source: "youtube",
-                    state: "error",
-                    message: details.failure.message,
+                    state: "ok",
+                    message: noApiKey,
                     checkedAt: now,
-                  }
-                : client.hasApiKey
-                  ? { source: "youtube", state: "ok", checkedAt: now }
-                  : {
+                  };
+
+          const status = Option.getOrElse(authFailure, () =>
+            Arr.match(failures, {
+              onEmpty: (): SourceStatus =>
+                Result.isFailure(details)
+                  ? {
                       source: "youtube",
-                      state: "ok",
-                      message: noApiKey,
+                      state: "error",
+                      message: details.failure.message,
                       checkedAt: now,
-                    },
-            onNonEmpty: ([first]) => ({
-              source: "youtube",
-              state: "error",
-              message: `Couldn't read ${failures.length} of ${channels.length} channels: ${first.message}`,
-              checkedAt: now,
+                    }
+                  : okStatus,
+              onNonEmpty: ([first]): SourceStatus => ({
+                source: "youtube",
+                state: "error",
+                message: `Couldn't read ${failures.length} of ${targets.length} channels: ${first.message}`,
+                checkedAt: now,
+              }),
             }),
-          });
+          );
 
           const previousKind = HashMap.fromIterable(
             Arr.map(before, ({ item }) => [item.id, item.kind] as const),
@@ -256,7 +399,7 @@ export class YouTubeSource extends Context.Service<
           const known = yield* Ref.getAndUpdate(knownChannels, (set) =>
             HashSet.union(
               set,
-              HashSet.fromIterable(Arr.map(feeds, ({ channel }) => channel.id)),
+              HashSet.fromIterable(Arr.map(feeds, ({ id }) => id)),
             ),
           );
 
@@ -272,13 +415,17 @@ export class YouTubeSource extends Context.Service<
 
           const isLive = ({ item }: FeedItem) => item.kind === "live";
 
-          // At startup a week of uploads is new, so only live streams are
-          // announced, and only when notify_on_startup is set.
-          const toAnnounce = startup
-            ? settings.notifyOnStartup
-              ? Arr.filter(fresh, isLive)
-              : []
-            : Arr.filter(fresh, ({ item }) => item.kind !== "upcoming");
+          // Only channels in channels.yml are announced. At startup a week of
+          // uploads is new, so only live streams are announced, and only when
+          // notify_on_startup is set.
+          const toAnnounce = Arr.filter(
+            startup
+              ? settings.notifyOnStartup
+                ? Arr.filter(fresh, isLive)
+                : []
+              : Arr.filter(fresh, ({ item }) => item.kind !== "upcoming"),
+            ({ tracked }) => tracked,
+          );
 
           const toOpen = Arr.filter(
             open ? items : startup ? [] : fresh,
@@ -337,6 +484,120 @@ export class YouTubeSource extends Context.Service<
 
       const toSourceError = (error: { readonly message: string }) =>
         youtubeError(error.message);
+
+      const saveTokens = Effect.fn("YouTubeSource.saveTokens")(function* (
+        tokens: GoogleTokens,
+      ) {
+        if (Option.isNone(tokens.refreshToken)) {
+          return yield* new YouTubeAuthError({
+            message: "Google sent no refresh token",
+          });
+        }
+
+        const refreshToken = Redacted.value(tokens.refreshToken.value);
+
+        yield* state.update((previous) => ({
+          ...previous,
+          youtube: { refreshToken },
+        }));
+
+        yield* Ref.set(session, Option.some(tokens));
+      });
+
+      const signIn = Effect.gen(function* () {
+        const settings = yield* config.settings.pipe(
+          Effect.mapError(toSourceError),
+        );
+
+        if (Option.isNone(settings.youtube.google)) {
+          return yield* youtubeError(noGoogleClient);
+        }
+
+        const google = settings.youtube.google.value;
+
+        // Only one sign-in listens at a time.
+        yield* FiberHandle.clear(signInHandle);
+
+        const scope = yield* Scope.make();
+        const signInState = crypto.randomUUID();
+
+        const code = yield* listenForCode(youtubeSignIn, signInState).pipe(
+          Scope.provide(scope),
+          Effect.onError(() => Scope.close(scope, Exit.void)),
+        );
+
+        yield* FiberHandle.run(
+          signInHandle,
+          Deferred.await(code).pipe(
+            Effect.timeoutOrElse({
+              duration: signInTimeout,
+              orElse: () => Effect.fail(youtubeError("sign-in timed out")),
+            }),
+            Effect.flatMap((code) =>
+              exchangeCode(google, {
+                code,
+                redirectUri: youtubeSignIn.redirectUri,
+              }).pipe(provideHttp),
+            ),
+            Effect.flatMap(saveTokens),
+            Effect.andThen(Effect.logInfo("Signed in to Google")),
+            Effect.andThen(requestCheck),
+            Effect.andThen(desktop.notify({ title: "Signed in to Google" })),
+            Effect.catch((error) =>
+              Effect.logWarning("Google sign-in failed", error.message).pipe(
+                Effect.andThen(
+                  desktop.notify({
+                    title: "Google sign-in failed",
+                    body: error.message,
+                  }),
+                ),
+              ),
+            ),
+            Effect.ensuring(Scope.close(scope, Exit.void)),
+          ),
+        );
+
+        const url = authorizeUrl({
+          clientId: google.clientId,
+          redirectUri: youtubeSignIn.redirectUri,
+          state: signInState,
+        });
+
+        yield* desktop.open(url);
+
+        return url;
+      }).pipe(Effect.withSpan("YouTubeSource.signIn"));
+
+      const candidates = Effect.gen(function* () {
+        const token = yield* accessToken;
+
+        if (Option.isNone(token)) {
+          return yield* youtubeError(signInMessage);
+        }
+
+        const client = yield* makeYouTubeClient({
+          apiKey: Option.none(),
+          accessToken: token,
+        }).pipe(provideHttp);
+
+        const subscriptions = yield* client.subscriptions;
+
+        const tracked = HashSet.fromIterable(
+          Arr.map((yield* config.channels).youtube, ({ id }) => id),
+        );
+
+        return Arr.sort(
+          Arr.filterMap(subscriptions, ({ channelId, title }) =>
+            HashSet.has(tracked, channelId)
+              ? Result.failVoid
+              : Result.succeed<ChannelCandidate>({ name: channelId, title }),
+          ),
+          candidateOrder,
+        );
+      }).pipe(
+        Effect.mapError(toSourceError),
+        Effect.withSpan("YouTubeSource.candidates"),
+      );
 
       const addChannel = Effect.fn("YouTubeSource.addChannel")(function* (
         value: string,
@@ -420,6 +681,8 @@ export class YouTubeSource extends Context.Service<
 
       return YouTubeSource.of({
         recheck: check,
+        signIn,
+        candidates,
         addChannel,
         removeChannel,
       });

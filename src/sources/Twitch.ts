@@ -7,12 +7,14 @@ import {
   Exit,
   FiberHandle,
   HashMap,
+  HashSet,
   Layer,
   Context,
   Option,
   Queue,
   Redacted,
   Ref,
+  Result,
   Schedule,
   Scope,
   Semaphore,
@@ -34,6 +36,7 @@ import {
   type TwitchTokens,
 } from "@timmo001/effect-twitch";
 import {
+  type ChannelCandidate,
   type FeedItem,
   SourceError,
   type SourceState,
@@ -42,7 +45,8 @@ import { UpnextConfig } from "../config/Config.js";
 import { Desktop } from "../desktop/Desktop.js";
 import { FeedStore } from "../feed/Feed.js";
 import { UpnextState } from "../state/State.js";
-import { listenForCode, redirectUri } from "./twitchSignIn.js";
+import { candidateOrder } from "./candidates.js";
+import { listenForCode, twitchSignIn } from "./signIn.js";
 import { wakeups } from "./wakeups.js";
 
 const retryDelay = Duration.seconds(30);
@@ -69,6 +73,11 @@ export interface TwitchSourceService {
   readonly recheck: (open: boolean) => Effect.Effect<void, SourceError>;
   // Starts signing in and returns the page the browser was sent to.
   readonly signIn: Effect.Effect<string, SourceError>;
+  // Followed channels that aren't in channels.yml.
+  readonly candidates: Effect.Effect<
+    ReadonlyArray<ChannelCandidate>,
+    SourceError
+  >;
   readonly addChannel: (
     name: string,
     open: Option.Option<boolean>,
@@ -78,6 +87,7 @@ export interface TwitchSourceService {
 
 interface Session {
   readonly client: TwitchClientService;
+  readonly owner: TokenOwner;
   readonly check: (open: boolean) => Effect.Effect<void, TwitchAuthError>;
 }
 
@@ -350,7 +360,7 @@ export class TwitchSource extends Context.Service<
         yield* Ref.set(authNotified, false);
 
         const check = checkWith(client, owner);
-        yield* Ref.set(current, Option.some({ client, check }));
+        yield* Ref.set(current, Option.some({ client, owner, check }));
         yield* check(false);
 
         // EventSub only makes a channel show up sooner. Polling catches
@@ -484,7 +494,7 @@ export class TwitchSource extends Context.Service<
         const scope = yield* Scope.make();
         const signInState = crypto.randomUUID();
 
-        const code = yield* listenForCode(signInState).pipe(
+        const code = yield* listenForCode(twitchSignIn, signInState).pipe(
           Scope.provide(scope),
           Effect.onError(() => Scope.close(scope, Exit.void)),
         );
@@ -497,9 +507,10 @@ export class TwitchSource extends Context.Service<
               orElse: () => Effect.fail(twitchError("sign-in timed out")),
             }),
             Effect.flatMap((code) =>
-              exchangeCode(found.value, { code, redirectUri }).pipe(
-                provideHttp,
-              ),
+              exchangeCode(found.value, {
+                code,
+                redirectUri: twitchSignIn.redirectUri,
+              }).pipe(provideHttp),
             ),
             Effect.flatMap(saveTokens),
             Effect.andThen(Effect.logInfo("Signed in to Twitch")),
@@ -521,7 +532,7 @@ export class TwitchSource extends Context.Service<
 
         const url = authorizeUrl({
           clientId: found.value.clientId,
-          redirectUri,
+          redirectUri: twitchSignIn.redirectUri,
           state: signInState,
         });
 
@@ -532,6 +543,38 @@ export class TwitchSource extends Context.Service<
 
       const toSourceError = (error: { readonly message: string }) =>
         twitchError(error.message);
+
+      const candidates = Effect.gen(function* () {
+        const session = yield* Ref.get(current);
+
+        if (Option.isNone(session)) {
+          return yield* twitchError(signInMessage);
+        }
+
+        const { client, owner } = session.value;
+        const followed = yield* client.followedChannels(owner.userId);
+
+        const tracked = HashSet.fromIterable(
+          Arr.map((yield* config.channels).twitch, ({ name }) =>
+            loginKey(name),
+          ),
+        );
+
+        return Arr.sort(
+          Arr.filterMap(followed, (channel) =>
+            HashSet.has(tracked, loginKey(channel.broadcaster_login))
+              ? Result.failVoid
+              : Result.succeed<ChannelCandidate>({
+                  name: channel.broadcaster_login,
+                  title: channel.broadcaster_name,
+                }),
+          ),
+          candidateOrder,
+        );
+      }).pipe(
+        Effect.mapError(toSourceError),
+        Effect.withSpan("TwitchSource.candidates"),
+      );
 
       const addChannel = Effect.fn("TwitchSource.addChannel")(function* (
         name: string,
@@ -610,7 +653,13 @@ export class TwitchSource extends Context.Service<
         yield* requestRestart;
       });
 
-      return TwitchSource.of({ recheck, signIn, addChannel, removeChannel });
+      return TwitchSource.of({
+        recheck,
+        signIn,
+        candidates,
+        addChannel,
+        removeChannel,
+      });
     }),
   );
 }
