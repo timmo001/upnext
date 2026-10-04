@@ -47,6 +47,20 @@ If the tokens stop working, the Twitch status in the feed changes to `auth-requi
 
 Live notifications are only for channels in `channels.yml`. Twitch's live events cover up to 10 of them, so those show up within seconds. The rest are checked every `poll_interval`. Another app using the same Twitch account's live events, such as twitch-notifications, can use up that allowance, and upnext then relies on polling until it's free.
 
+## YouTube
+
+upnext reads each channel's RSS feed, which needs no account. Uploads from the last 7 days show in the feed, and new ones are announced.
+
+With `youtube.api_key`, upnext also looks the videos up in the YouTube Data API, so live streams show as live, scheduled streams as upcoming, and you're notified when one goes live. Create a key in the [Google Cloud console](https://console.cloud.google.com/apis/credentials) with the YouTube Data API v3 enabled. Each check costs one unit of quota per 50 videos.
+
+Add channels by ID, which starts with `UC`, or paste the channel's `/channel/` URL:
+
+```bash
+upnext channel add youtube UCXuqSBlHAE6Xw-yeJA0Tunw
+```
+
+A channel you've just added doesn't announce its existing uploads.
+
 ## channels.yml
 
 ```yaml

@@ -9,6 +9,7 @@ upnext is built from Effect v4 libraries, published to npm and JSR. They work un
 | --- | --- |
 | [`@timmo001/effect-upnext`](https://github.com/timmo001/upnext/tree/main/packages/client) | Talk to a running daemon over its socket |
 | [`@timmo001/effect-twitch`](https://github.com/timmo001/upnext/tree/main/packages/twitch) | Sign in to Twitch, find live channels and turn them into `MediaItem`s, without the daemon |
+| [`@timmo001/effect-youtube`](https://github.com/timmo001/upnext/tree/main/packages/youtube) | Read YouTube channel feeds and live streams and turn them into `MediaItem`s, without the daemon |
 | [`@timmo001/effect-upnext-shared`](https://github.com/timmo001/upnext/tree/main/packages/shared) | Use the `MediaItem` schemas every source and client shares |
 
 The CLI is a client of the same RPCs that `effect-upnext` defines, so anything the CLI does, your app can do too.
