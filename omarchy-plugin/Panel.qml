@@ -373,11 +373,10 @@ Panel {
             meta: root.service && root.service.restarting ? "Restarting Up Next"
               : (!root.service || root.service.statusState === "inactive"
                 ? "Up Next is unavailable"
-                : (root.service.statusState === "live"
-                  ? root.service.liveCount + " live now"
-                  : "Nothing live"))
+                : root.service.issues.concat([root.service.summary]).join(" · "))
             detail: root.service && root.service.restarting ? "RESTARTING"
-              : (root.service && root.service.connected ? "CONNECTED" : "OFFLINE")
+              : (!root.service || !root.service.connected ? "OFFLINE"
+                : (root.service.issues.length > 0 ? "ATTENTION" : "CONNECTED"))
             foreground: root.contentForeground
             fontFamily: root.contentFontFamily
             iconOpacity: root.service && root.service.connected ? 1 : 0.5

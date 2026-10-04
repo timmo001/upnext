@@ -24,7 +24,8 @@ BarWidget {
   readonly property bool activeInstance: !primaryOnly
     || (currentOutput !== "" && currentOutput === activeOutput)
   readonly property var upnext: bar?.shell?.serviceFor("timmo.upnext")
-  readonly property bool hiddenByState: upnext && upnext.statusState === "active"
+  readonly property bool hasIssues: !!upnext && upnext.connected && upnext.issues.length > 0
+  readonly property bool hiddenByState: upnext && upnext.statusState === "active" && !hasIssues
   readonly property bool hoverRevealed: hiddenByState
     && setting("revealOnHover", true)
     && !!bar
@@ -32,7 +33,8 @@ BarWidget {
   readonly property bool shown: !upnext || !hiddenByState || hoverRevealed || opened
   readonly property bool vertical: bar ? bar.vertical : false
   // Twitch live, YouTube live, then new uploads. Zero counts are left out,
-  // and the lowest priority goes first when there's no room.
+  // and the lowest priority goes first when there's no room. A warning always
+  // shows when a source has a problem.
   readonly property var counts: {
     if (!upnext || !upnext.connected) return []
     var parts = [
@@ -40,19 +42,18 @@ BarWidget {
       { icon: "󰗃", count: upnext.youtubeLiveCount, color: upnext.sourceColors.youtube, gap: false },
       { icon: "󰕧", count: upnext.newUploadCount, color: Qt.darker(upnext.sourceColors.youtube, 1.3), gap: true }
     ].filter(function(part) { return part.count > 0 })
-    return parts.slice(0, vertical ? 1 : Math.max(1, setting("maxCounts", 3)))
+    var room = vertical ? 1 : Math.max(1, setting("maxCounts", 3))
+    if (!hasIssues) return parts.slice(0, room)
+    var warning = { icon: "󰀦", count: "", color: warningColor, gap: parts.length > 0 }
+    return vertical ? [warning] : parts.slice(0, room).concat([warning])
   }
+  readonly property color warningColor: "#e5a50a"
   readonly property bool disconnected: !upnext || upnext.statusState === "inactive"
   readonly property string displayText: root.hoverRevealed ? "󰒭 0" : "󰒭"
   readonly property color displayColor: root.disconnected ? "#a55555" : "#9b9b9b"
   readonly property string tooltipText: {
-    if (!upnext || upnext.statusState === "inactive") return "Up Next is unavailable"
-    var lines = []
-    if (upnext.twitchLiveCount > 0) lines.push(upnext.twitchLiveCount + " live on Twitch")
-    if (upnext.youtubeLiveCount > 0) lines.push(upnext.youtubeLiveCount + " live on YouTube")
-    if (upnext.newUploadCount > 0)
-      lines.push(upnext.newUploadCount + " new upload" + (upnext.newUploadCount === 1 ? "" : "s"))
-    return lines.length > 0 ? lines.join(" · ") : "Nothing live"
+    if (root.disconnected) return "Up Next is unavailable"
+    return upnext.issues.concat([upnext.summary]).join("\n")
   }
 
   readonly property bool opened: panelLoader.item ? panelLoader.item.opened === true : false
@@ -206,6 +207,7 @@ BarWidget {
           }
 
           Text {
+            visible: modelData.count !== ""
             text: modelData.count
             color: modelData.color
             font.family: button.fontFamily

@@ -34,6 +34,27 @@ Item {
   readonly property var attentionSources: sources.filter(function(status) {
     return status.state === "auth-required" || status.state === "error"
   })
+  readonly property var sourceNames: ({ twitch: "Twitch", youtube: "YouTube" })
+  // Problems to flag in the bar: sources needing attention, and a feed the
+  // panel couldn't read while still connected.
+  readonly property var issues: {
+    var lines = attentionSources.map(function(status) {
+      var name = sourceNames[status.source] || status.source
+      if (status.state === "auth-required") return name + " needs you to sign in again"
+      return name + ": " + (status.message || "error")
+    })
+    if (connected && errorText !== "") lines.push(errorText)
+    return lines
+  }
+  // What's live and new, for the bar tooltip and the panel header.
+  readonly property string summary: {
+    var parts = []
+    if (twitchLiveCount > 0) parts.push(twitchLiveCount + " live on Twitch")
+    if (youtubeLiveCount > 0) parts.push(youtubeLiveCount + " live on YouTube")
+    if (newUploadCount > 0)
+      parts.push(newUploadCount + " new upload" + (newUploadCount === 1 ? "" : "s"))
+    return parts.length > 0 ? parts.join(" · ") : "Nothing new"
+  }
   // live, new, active or inactive, for the bar widget.
   readonly property string statusState: !connected ? "inactive"
     : (liveCount > 0 ? "live" : (newUploadCount > 0 ? "new" : "active"))
