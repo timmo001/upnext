@@ -42,8 +42,8 @@ Every live row shows its viewer count and category.
 
 - Type to filter, use Up and Down to move, and press Enter to open the selected item.
 - Press Enter on a section heading, or click it, to collapse or expand it.
-- Press Shift+Enter to mark a YouTube upload or a saved item watched.
-- Right-click an item, or press the Menu key or Shift+F10, for more options: open it, add its channel to your channels if you don't track it yet, or mark it watched.
+- Press Shift+Enter to mark a YouTube video or a saved item watched.
+- Right-click an item, or press the Menu key or Shift+F10, for more options: open it, open its channel, add the channel to your channels if you don't track it yet, or mark it watched.
 - Press Ctrl+R to recheck.
 - If a source needs you to sign in, it shows at the top. Select it to run `upnext auth`.
 

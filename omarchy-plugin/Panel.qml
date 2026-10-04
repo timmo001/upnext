@@ -306,9 +306,9 @@ Panel {
     }
   }
 
+  // Saved items, and any YouTube video, live or not. Twitch streams can't be.
   function canMarkWatched(entry) {
-    return entry.item.kind === "saved"
-      || (entry.item.kind === "upload" && entry.item.source === "youtube")
+    return entry.item.kind === "saved" || entry.item.source === "youtube"
   }
 
   // Opens the item, or with Shift marks it watched.
@@ -326,6 +326,8 @@ Panel {
   function itemActions(entry) {
     if (!entry) return []
     var actions = [{ id: "open", label: entry.item.kind === "live" ? "Watch" : "Open" }]
+    if (entry.item.channel && entry.item.channel.url)
+      actions.push({ id: "channel", label: "Open " + entry.item.channel.name })
     if (entry.tracked !== true && (entry.item.source === "twitch" || entry.item.source === "youtube"))
       actions.push({ id: "add", label: "Add " + entry.item.channel.name + " to your channels" })
     if (canMarkWatched(entry)) actions.push({ id: "watched", label: "Mark as watched" })
@@ -348,7 +350,10 @@ Panel {
     itemMenu.close()
     if (!entry || !service) return
     if (action === "open") activateItem(entry, false)
-    else if (action === "add") service.addChannel(entry.item)
+    else if (action === "channel") {
+      service.openUrl(entry.item.channel.url)
+      close()
+    } else if (action === "add") service.addChannel(entry.item)
     else if (action === "watched") service.markWatched(entry.item)
   }
 
