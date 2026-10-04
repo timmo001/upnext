@@ -20,6 +20,7 @@ Item {
   readonly property int count: filteredModel.length
 
   signal activateRequested(var entry, int modifiers)
+  signal menuRequested(var entry)
   signal closeRequested()
   signal backRequested()
   signal refreshRequested()
@@ -149,6 +150,11 @@ Item {
     } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
       var entry = root.selectedEntry()
       if (entry) root.activateRequested(entry, event.modifiers)
+      event.accepted = true
+    } else if (event.key === Qt.Key_Menu
+        || (event.key === Qt.Key_F10 && event.modifiers === Qt.ShiftModifier)) {
+      var menuEntry = root.selectedEntry()
+      if (menuEntry) root.menuRequested(menuEntry)
       event.accepted = true
     } else if (event.key === Qt.Key_R && event.modifiers === Qt.ControlModifier) {
       root.refreshRequested()

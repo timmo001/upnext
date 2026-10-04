@@ -139,6 +139,16 @@ Item {
     Quickshell.execDetached(command(["watched", String(item.id)]))
   }
 
+  // Adds the item's channel to channels.yml. Twitch takes the login, which is
+  // in the item id, and YouTube the channel ID.
+  function addChannel(item) {
+    if (!item || !connected) return
+    var name = item.source === "twitch"
+      ? String(item.id).replace(/^twitch:/, "")
+      : String(item.channel.id)
+    Quickshell.execDetached(command(["channel", "add", String(item.source), name]))
+  }
+
   function signIn(source) {
     Quickshell.execDetached(command(["auth", String(source)]))
   }
