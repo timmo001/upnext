@@ -40,7 +40,7 @@ BarWidget {
     var parts = [
       { icon: "󰕃", count: upnext.twitchLiveCount, color: upnext.sourceColors.twitch, gap: false },
       { icon: "󰗃", count: upnext.youtubeLiveCount, color: upnext.sourceColors.youtube, gap: false },
-      { icon: "󰕧", count: upnext.newUploadCount, color: Qt.darker(upnext.sourceColors.youtube, 1.3), gap: true }
+      { icon: "󰗃", count: upnext.newUploadCount, color: Qt.darker(upnext.sourceColors.youtube, 1.3), gap: true }
     ].filter(function(part) { return part.count > 0 })
     var room = vertical ? 1 : Math.max(1, setting("maxCounts", 3))
     if (!hasIssues) return parts.slice(0, room)
