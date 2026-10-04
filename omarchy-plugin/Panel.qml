@@ -264,7 +264,10 @@ Panel {
   }
 
   function cursorItem() {
-    var entry = filterController.selectedEntry()
+    return itemForEntry(filterController.selectedEntry())
+  }
+
+  function itemForEntry(entry) {
     if (!entry) return null
     if (entry.kind === "header-action") return actionsHeader
     if (entry.kind === "action") return actionRepeater.itemAt(filteredActions.indexOf(entry))
@@ -293,6 +296,48 @@ Panel {
     id: revealTimer
     interval: 0
     onTriggered: root.scrollCursorIntoView()
+  }
+
+  // The row at the top of the view when a feed update arrives, and how far
+  // down the view it was. The view is moved back to it as the rebuilt rows
+  // are laid out, rather than jumping.
+  property var scrollAnchor: null
+
+  function captureScrollAnchor() {
+    scrollAnchor = null
+    if (!opened) return
+    var rows = navigationRows
+    for (var i = 0; i < rows.length; i++) {
+      var item = itemForEntry(rows[i])
+      if (!item) continue
+      var y = item.mapToItem(contentColumn, 0, 0).y
+      if (y + item.height <= panelFlick.contentY) continue
+      scrollAnchor = { key: rows[i].key, offset: y - panelFlick.contentY }
+      anchorTimer.restart()
+      return
+    }
+  }
+
+  function restoreScrollAnchor() {
+    if (!scrollAnchor) return
+    var anchorKey = scrollAnchor.key
+    var entry = navigationRows.find(function(row) { return row.key === anchorKey })
+    var item = itemForEntry(entry)
+    if (!item) return
+    var y = item.mapToItem(contentColumn, 0, 0).y - scrollAnchor.offset
+    panelFlick.contentY = Math.max(0, Math.min(y, panelFlick.contentHeight - panelFlick.height))
+  }
+
+  Connections {
+    target: root.service
+    function onItemsAboutToChange() { root.captureScrollAnchor() }
+  }
+
+  // Rows lay out over a few passes, so the anchor is kept briefly.
+  Timer {
+    id: anchorTimer
+    interval: 250
+    onTriggered: root.scrollAnchor = null
   }
 
   Timer {
@@ -399,7 +444,9 @@ Panel {
       anchors.fill: parent
       model: root.panelRows
       navigationModel: root.navigationRows
-      onRevealRequested: revealTimer.restart()
+      // A feed update keeps the view where it is instead of jumping to the
+      // selected row.
+      onRevealRequested: if (!root.scrollAnchor) revealTimer.restart()
       onActivateRequested: function(entry, modifiers) { root.activateEntry(entry, modifiers) }
       onMenuRequested: function(entry) { if (entry.kind === "item") root.itemMenuRequested(entry.key) }
       onCloseRequested: root.close()
@@ -421,6 +468,7 @@ Panel {
           id: contentColumn
           width: panelFlick.width
           spacing: Style.space(12)
+          onPositioningComplete: root.restoreScrollAnchor()
 
           PanelHeader {
             title: "Up Next"

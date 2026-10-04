@@ -32,16 +32,14 @@ Item {
   Keys.enabled: keyboardEnabled
 
   onCursorIndexChanged: cursorKey = navigationEntries[cursorIndex]?.key || ""
-  onFilteredModelChanged: {
-    clampCursor()
-    revealRequested()
-  }
+  // Rows change when the data does, so these keep the selection but don't
+  // scroll to it. Only moving the cursor or changing the filter does.
+  onFilteredModelChanged: clampCursor()
   onNavigationEntriesChanged: {
     var index = indexForKey(cursorKey)
     if (index >= 0) cursorIndex = index
     else clampCursor()
     cursorKey = navigationEntries[cursorIndex]?.key || ""
-    revealRequested()
   }
 
   function filterModel(entries, query) {
@@ -82,6 +80,7 @@ Item {
     filterText = nextFilter
     cursorIndex = firstCursorIndex()
     cursorActive = cursorStartsActive
+    revealRequested()
   }
 
   function clampCursor() {

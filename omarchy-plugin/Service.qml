@@ -9,6 +9,10 @@ Item {
   property bool connected: false
   property var sources: []
   property var items: []
+
+  // Sent just before a feed update replaces the items, so a panel can keep
+  // its place.
+  signal itemsAboutToChange()
   property string errorText: "Connecting to Up Next"
   property var actionCommand: []
   property string commandPath: "upnext"
@@ -68,6 +72,7 @@ Item {
     if (!text) return
     try {
       var feed = JSON.parse(text)
+      itemsAboutToChange()
       sources = Array.isArray(feed.sources) ? feed.sources : []
       items = Array.isArray(feed.items) ? feed.items : []
       connected = true
