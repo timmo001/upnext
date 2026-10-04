@@ -145,7 +145,8 @@ export const optionalText = (value: string) =>
 const positiveSeconds = (value: number, fallback: number) =>
   Duration.seconds(value > 0 ? value : fallback);
 
-// Encodes a value with its schema, then writes block-style YAML.
+// Encodes a value with its schema, then writes block-style YAML with a
+// document start, which yamllint expects.
 export const encodeYaml = <S extends Schema.Encoder<unknown>>(
   schema: S,
   value: S["Type"],
@@ -154,7 +155,7 @@ export const encodeYaml = <S extends Schema.Encoder<unknown>>(
     // Bun leaves a space after keys that open a block.
     Effect.map(
       (encoded) =>
-        `${Str.replaceAll(/ +$/gm, "")(Bun.YAML.stringify(encoded, null, 2))}\n`,
+        `---\n${Str.replaceAll(/ +$/gm, "")(Bun.YAML.stringify(encoded, null, 2))}\n`,
     ),
   );
 
