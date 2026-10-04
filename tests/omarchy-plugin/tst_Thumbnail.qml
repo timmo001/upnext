@@ -1,13 +1,13 @@
 import QtQuick
 import QtTest
-import "../../omarchy-plugin" as Twitch
+import "../../omarchy-plugin" as Upnext
 
 TestCase {
   name: "Thumbnail"
 
   Component {
     id: thumbnailComponent
-    Twitch.Thumbnail {}
+    Upnext.Thumbnail {}
   }
 
   Component {

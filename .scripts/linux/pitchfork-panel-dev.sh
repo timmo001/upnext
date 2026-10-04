@@ -4,7 +4,7 @@ set -euo pipefail
 
 repo_dir="$(realpath "$(dirname "${BASH_SOURCE[0]}")/../..")"
 source_dir="$repo_dir/omarchy-plugin"
-plugin_dir="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/plugins/timmo.twitch"
+plugin_dir="${XDG_CONFIG_HOME:-$HOME/.config}/omarchy/plugins/timmo.upnext"
 backup_dir="$(mktemp -d)"
 had_plugin=false
 
@@ -33,7 +33,13 @@ rsync -a \
   --include='manifest.json' \
   --exclude='*' \
   "$source_dir/" "$plugin_dir/"
-sed -i "s|property string commandPath: \"twitch-notifications\"|property string commandPath: \"$repo_dir/twitch-notifications\"|" "$plugin_dir/Service.qml"
+# Talk to the pitchfork daemon on its own socket, through the source CLI.
+socket_path="${XDG_RUNTIME_DIR:?}/upnext/dev.sock"
+sed -i \
+  -e "s|property string commandPath: \"upnext\"|property string commandPath: \"$repo_dir/.scripts/linux/upnext-dev.sh\"|" \
+  -e "s|property string socketPath: \"\"|property string socketPath: \"$socket_path\"|" \
+  -e "s|property var restartCommand: .*|property var restartCommand: [\"mise\", \"-C\", \"$repo_dir\", \"run\", \"serve:daemon:restart\"]|" \
+  "$plugin_dir/Service.qml"
 printf 'Published %s to %s\n' "$source_dir" "$plugin_dir"
 
 while true; do sleep 3600; done

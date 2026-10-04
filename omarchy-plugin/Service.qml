@@ -6,78 +6,78 @@ Item {
   id: root
 
   property var shell: null
-  property bool active: false
-  property string statusState: "inactive"
-  property int liveCount: 0
-  property var channels: []
-  property var followedLive: []
-  property string errorText: ""
+  property bool connected: false
+  property var sources: []
+  property var items: []
+  property string errorText: "Connecting to upnext"
   property var actionCommand: []
-  property string commandPath: "twitch-notifications"
-  property int pollInterval: 60
+  property string commandPath: "upnext"
+  // Empty uses the daemon's default socket.
+  property string socketPath: ""
+  property var restartCommand: ["systemctl", "--user", "restart", "upnext.service"]
   property var thumbnails: ({})
 
-  readonly property bool refreshing: statusProcess.running
   readonly property bool restarting: restartFeedback.running
   readonly property bool actionBusy: actionProcess.running || restarting
-  readonly property bool canRecheck: active && !actionBusy
-  readonly property var liveChannels: channels.filter(function(channel) { return channel.live === true })
-  readonly property var offlineChannels: channels.filter(function(channel) { return channel.live !== true })
+  readonly property bool canRecheck: connected && !actionBusy
+  readonly property var liveItems: items.filter(function(entry) { return entry.item.kind === "live" })
+  readonly property int liveCount: liveItems.filter(function(entry) { return entry.tracked === true }).length
+  readonly property var attentionSources: sources.filter(function(status) {
+    return status.state === "auth-required" || status.state === "error"
+  })
+  // live, active or inactive, for the bar widget.
+  readonly property string statusState: !connected ? "inactive" : (liveCount > 0 ? "live" : "active")
 
-  function clearStatus(message) {
-    active = false
-    statusState = "inactive"
-    liveCount = 0
-    channels = []
-    followedLive = []
-    errorText = message
+  function command(args) {
+    return socketPath ? [commandPath, "--socket", socketPath].concat(args) : [commandPath].concat(args)
   }
 
-  function applyStatus(raw) {
+  function applyFeed(line) {
+    var text = String(line || "").trim()
+    if (!text) return
     try {
-      var payload = JSON.parse(String(raw || "").trim())
-      active = payload.active === true
-      statusState = ["live", "active", "inactive"].indexOf(payload.state) >= 0
-        ? payload.state : (active ? "active" : "inactive")
-      liveCount = Math.max(0, Number(payload.liveCount || 0))
-      if (Number(payload.pollInterval) > 0) pollInterval = Number(payload.pollInterval)
-      channels = Array.isArray(payload.channels) ? payload.channels : []
+      var feed = JSON.parse(text)
+      sources = Array.isArray(feed.sources) ? feed.sources : []
+      items = Array.isArray(feed.items) ? feed.items : []
+      connected = true
       errorText = ""
+      pruneThumbnails()
     } catch (error) {
-      clearStatus("Invalid status response")
+      errorText = "Invalid feed from upnext"
     }
   }
 
-  function refresh() {
-    if (!statusProcess.running) statusProcess.running = true
+  function disconnect() {
+    connected = false
+    errorText = "upnext is unavailable"
   }
 
-  function refreshFollowedLive() {
-    if (!followedProcess.running) followedProcess.running = true
-  }
-
-  function thumbnailFor(channel) {
-    if (!channel || channel.live !== true || !channel.login) return null
-    var key = ":" + String(channel.login).trim().toLowerCase()
-    var thumbnail = thumbnails[key]
-    var url = String(channel.thumbnailUrl || "")
-    if (!thumbnail && url) {
+  function thumbnailFor(item) {
+    if (!item || !item.thumbnailUrl) return null
+    var thumbnail = thumbnails[item.id]
+    if (!thumbnail) {
       thumbnail = thumbnailComponent.createObject(root)
-      thumbnails[key] = thumbnail
+      thumbnails[item.id] = thumbnail
     }
-    if (thumbnail && url) thumbnail.thumbnailUrl = url
-    return thumbnail || null
+    thumbnail.thumbnailUrl = String(item.thumbnailUrl)
+    return thumbnail
   }
 
+  // Live previews change while a stream runs; other thumbnails don't.
   function refreshThumbnails() {
-    var live = channels.concat(followedLive)
-    var refreshed = {}
-    for (var i = 0; i < live.length; i++) {
-      var channel = live[i]
-      var key = ":" + String(channel.login || "").trim().toLowerCase()
-      if (channel.live !== true || refreshed[key] || !thumbnails[key]) continue
-      refreshed[key] = true
-      thumbnailFor(channel).refresh()
+    for (var i = 0; i < liveItems.length; i++) {
+      var thumbnail = thumbnails[liveItems[i].item.id]
+      if (thumbnail) thumbnail.refresh()
+    }
+  }
+
+  function pruneThumbnails() {
+    var ids = {}
+    for (var i = 0; i < items.length; i++) ids[items[i].item.id] = true
+    for (var id in thumbnails) {
+      if (ids[id]) continue
+      thumbnails[id].destroy()
+      delete thumbnails[id]
     }
   }
 
@@ -92,17 +92,24 @@ Item {
     actionProcess.running = true
   }
 
-  function recheck(openStreams) {
+  function recheck(openLive) {
     if (!canRecheck) return
-    runAction(openStreams
-      ? [commandPath, "--recheck", "--open"]
-      : ["twitch-notifications-recheck"])
+    runAction(command(openLive ? ["recheck", "--open"] : ["recheck"]))
   }
 
   function restart() {
     if (actionBusy) return
     restartFeedback.restart()
-    runAction(["twitch-notifications-restart"])
+    runAction(restartCommand)
+  }
+
+  function markWatched(item) {
+    if (!item || !connected) return
+    Quickshell.execDetached(command(["watched", String(item.id)]))
+  }
+
+  function signIn(source) {
+    Quickshell.execDetached(command(["auth", String(source)]))
   }
 
   function openUrl(url) {
@@ -111,31 +118,19 @@ Item {
     Quickshell.execDetached([launcher, url])
   }
 
-  function openFollowing() {
-    openUrl("https://twitch.tv/directory/following")
-  }
-
-  function openFollowingLive() {
-    openUrl("https://twitch.tv/directory/following/live")
-  }
-
-  function openChannel(channel) {
-    if (!channel || !channel.login) return
-    var url = "https://twitch.tv/" + encodeURIComponent(String(channel.login))
-    if (channel.live !== true) url += "/videos?filter=archives&sort=time"
-    openUrl(url)
-  }
-
+  // Streams the feed now and after every change. The process exits when the
+  // daemon stops, and reconnects shortly after.
   Process {
-    id: statusProcess
-    command: [root.commandPath, "--status-json"]
-    stdout: StdioCollector {
-      id: statusOutput
-      waitForEnd: true
+    id: watchProcess
+    running: true
+    command: root.command(["watch", "--json"])
+    stdout: SplitParser {
+      onRead: function(line) { root.applyFeed(line) }
     }
-    onExited: function(exitCode) {
-      if (exitCode === 0) root.applyStatus(statusOutput.text)
-      else root.clearStatus("Twitch Notifications is unavailable")
+    stderr: StdioCollector { waitForEnd: true }
+    onExited: {
+      root.disconnect()
+      reconnect.restart()
     }
   }
 
@@ -144,45 +139,16 @@ Item {
     command: root.actionCommand
     stdout: StdioCollector { waitForEnd: true }
     stderr: StdioCollector { waitForEnd: true }
-    onExited: refreshDelay.restart()
-  }
-
-  Process {
-    id: followedProcess
-    command: [root.commandPath, "--followed-live-json"]
-    stdout: StdioCollector {
-      id: followedOutput
-      waitForEnd: true
-    }
-    // A failed refresh keeps the last list rather than emptying the open panel.
-    onExited: function(exitCode) {
-      if (exitCode !== 0) return
-      try {
-        var payload = JSON.parse(String(followedOutput.text || "").trim())
-        if (Array.isArray(payload)) root.followedLive = payload
-      } catch (error) {}
-    }
   }
 
   Timer {
-    interval: root.restarting ? 250 : 5000
-    running: true
-    repeat: true
-    triggeredOnStart: true
-    onTriggered: root.refresh()
+    id: reconnect
+    interval: root.restarting ? 500 : 5000
+    onTriggered: if (!watchProcess.running) watchProcess.running = true
   }
 
   Timer {
     id: restartFeedback
     interval: 5000
-    repeat: false
-    onTriggered: root.refresh()
-  }
-
-  Timer {
-    id: refreshDelay
-    interval: 1500
-    repeat: false
-    onTriggered: root.refresh()
   }
 }
