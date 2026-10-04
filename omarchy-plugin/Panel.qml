@@ -47,7 +47,7 @@ Panel {
     { kind: "other", title: "OTHER UPLOADS", sources: ["youtube"], empty: "All caught up" },
     { kind: "saved", title: "WATCH LATER", sources: [], empty: "Nothing saved for later" }
   ]
-  readonly property var defaultExpanded: ({ live: true, followed: true, upcoming: true, upload: true, other: false, saved: true })
+  readonly property var defaultExpanded: ({ live: true, followed: true, upcoming: false, upload: true, other: false, saved: true })
   property var expanded: defaultExpanded
   // The source the panel was last opened on, so its bind can close it again.
   property string focusedSource: ""
@@ -237,16 +237,12 @@ Panel {
     expanded = next
   }
 
-  // Followed and Upcoming start collapsed when there's nothing in them.
+  // Followed starts collapsed when there's nothing in it.
   function openingExpanded() {
     var next = Object.assign({}, defaultExpanded)
-    var collapsible = ["followed", "upcoming"]
-    for (var i = 0; i < collapsible.length; i++) {
-      var kind = collapsible[i]
-      next[kind] = panelRows.some(function(entry) {
-        return entry.kind === "item" && entry.section === kind
-      })
-    }
+    next.followed = panelRows.some(function(entry) {
+      return entry.kind === "item" && entry.section === "followed"
+    })
     return next
   }
 
