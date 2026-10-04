@@ -842,7 +842,7 @@ Panel {
         id: itemMenu
         readonly property var menuBorderSpec: Border.localOrSurfaceSpec("popups", "border", Color.popups.border, Color.popups.border, Style.normalBorderWidth)
         width: Style.space(260)
-        implicitHeight: menuList.contentHeight + topPadding + bottomPadding
+        implicitHeight: itemMenu.contentItem.contentHeight + topPadding + bottomPadding
         padding: Style.spacing.hairline
         leftPadding: Border.left(menuBorderSpec) + Style.spacing.hairline
         rightPadding: Border.right(menuBorderSpec) + Style.spacing.hairline
@@ -857,16 +857,17 @@ Panel {
         }
 
         onOpened: {
-          menuList.currentIndex = 0
-          menuList.forceActiveFocus()
+          itemMenu.contentItem.currentIndex = 0
+          itemMenu.contentItem.forceActiveFocus()
         }
         onClosed: {
           root.menuEntry = null
           filterController.forceActiveFocus()
         }
 
+        // No id here: an id on a Popup's contentItem makes qmllint hang, so
+        // the list is reached through itemMenu.contentItem.
         contentItem: ListView {
-          id: menuList
           implicitHeight: contentHeight
           interactive: false
           model: root.itemActions(root.menuEntry)
@@ -878,13 +879,13 @@ Panel {
               itemMenu.close()
               event.accepted = true
             } else if (event.key === Qt.Key_Down || event.text === "j") {
-              menuList.currentIndex = Math.min(menuList.count - 1, menuList.currentIndex + 1)
+              itemMenu.contentItem.currentIndex = Math.min(itemMenu.contentItem.count - 1, itemMenu.contentItem.currentIndex + 1)
               event.accepted = true
             } else if (event.key === Qt.Key_Up || event.text === "k") {
-              menuList.currentIndex = Math.max(0, menuList.currentIndex - 1)
+              itemMenu.contentItem.currentIndex = Math.max(0, itemMenu.contentItem.currentIndex - 1)
               event.accepted = true
             } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-              if (menuList.currentIndex >= 0) root.runItemAction(menuList.model[menuList.currentIndex].id)
+              if (itemMenu.contentItem.currentIndex >= 0) root.runItemAction(itemMenu.contentItem.model[itemMenu.contentItem.currentIndex].id)
               event.accepted = true
             }
           }
@@ -892,9 +893,9 @@ Panel {
           delegate: Rectangle {
             required property var modelData
             required property int index
-            width: menuList.width
+            width: itemMenu.contentItem.width
             height: Style.spacing.popupRowHeight
-            color: index === menuList.currentIndex
+            color: index === itemMenu.contentItem.currentIndex
               ? Style.hoverFillFor(root.contentForeground, root.contentForeground)
               : "transparent"
 
@@ -916,7 +917,7 @@ Panel {
               anchors.fill: parent
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
-              onPositionChanged: menuList.currentIndex = parent.index
+              onPositionChanged: itemMenu.contentItem.currentIndex = parent.index
               onClicked: root.runItemAction(parent.modelData.id)
             }
           }
