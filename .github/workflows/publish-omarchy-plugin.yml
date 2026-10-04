@@ -38,7 +38,7 @@ jobs:
           pacman -Sy --noconfirm --needed archlinux-keyring
           pacman -Su --noconfirm --needed diffutils git jq quickshell qt6-declarative shellcheck
 
-      - name: Checkout Twitch Notifications
+      - name: Checkout upnext
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Checkout Omarchy Quattro
@@ -73,13 +73,13 @@ jobs:
     needs: validate
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Twitch Notifications
+      - name: Checkout upnext
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Checkout publish repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          repository: ${{ github.repository_owner }}/omarchy-twitch-notifications
+          repository: ${{ github.repository_owner }}/omarchy-upnext
           path: _publish
           ssh-key: ${{ secrets.OMARCHY_PLUGIN_DEPLOY_KEY }}
 
@@ -97,5 +97,5 @@ jobs:
             echo 'Published plugin is already current.'
             exit 0
           fi
-          git -C _publish commit -m "Publish from twitch-notifications@${SOURCE_SHA:0:8}"
+          git -C _publish commit -m "Publish from upnext@${SOURCE_SHA:0:8}"
           git -C _publish push
