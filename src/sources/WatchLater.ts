@@ -277,7 +277,11 @@ export class WatchLater extends Context.Service<
               maxWatched,
             ),
           }))
-          .pipe(Effect.orDie);
+          .pipe(
+            Effect.mapError(
+              (error) => new SourceError({ message: error.message }),
+            ),
+          );
 
         yield* feed.remove(ids);
         yield* publish;
