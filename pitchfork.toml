@@ -1,9 +1,18 @@
-# Pitchfork keeps the development daemon outside the invoking agent process.
+# Keeps the docs dev server, a local daemon and the development panel running
+# in the background, outside the invoking shell or agent. Manage them with the
+# serve:* and dev:* mise tasks.
 
-[daemons.backend]
-run = ".scripts/linux/pitchfork-backend-dev.sh"
-ready_delay = 3
+# Uses its own socket so it never replaces the installed service's socket
+[daemons.daemon]
+run = 'UPNEXT_SOCK="$XDG_RUNTIME_DIR/upnext/dev.sock" exec bun run --watch src/index.ts serve'
+retry = true
 
 [daemons.panel]
 run = ".scripts/linux/pitchfork-panel-dev.sh"
 ready_delay = 1
+
+[daemons.docs]
+run = "exec mise run docs:dev"
+ready_http = "http://localhost:4321/"
+health_http = "http://localhost:4321/"
+retry = true
