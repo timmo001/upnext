@@ -1,0 +1,63 @@
+---
+import data from "blume:data";
+
+interface Props {
+  headings: { depth: number; slug: string; text: string }[];
+  page: { description?: string; route: string; title: string };
+  route: string;
+}
+
+const { page, route } = Astro.props;
+const home = route === "/" || page.route === "/";
+const description = page.description ?? data.config.description;
+---
+
+{
+  home && description && (
+    <section
+      aria-labelledby="home-banner-title"
+      class="home-banner relative -mx-6 -mt-6 mb-8 overflow-hidden px-6 pt-0 pb-6 sm:pb-8 lg:-mx-8 xl:-mx-10"
+    >
+      <div class="mx-auto flex max-w-3xl flex-col items-center text-center">
+        <img
+          alt=""
+          class="-mt-[34px] -mb-[32px] size-56 sm:-mt-[51px] sm:-mb-[49px] sm:size-80 dark:hidden"
+          height="320"
+          src="/logo-light.svg"
+          width="320"
+        />
+        <img
+          alt=""
+          class="-mt-[34px] -mb-[32px] hidden size-56 sm:-mt-[51px] sm:-mb-[49px] sm:size-80 dark:block"
+          height="320"
+          src="/logo-dark.svg"
+          width="320"
+        />
+        <h1
+          class="mt-2 font-display text-4xl font-semibold tracking-tight text-zinc-900 sm:text-6xl dark:text-white"
+          id="home-banner-title"
+        >
+          {data.config.title}
+        </h1>
+        <p class="mt-3 max-w-xl text-lg text-zinc-700 sm:text-xl dark:text-zinc-300">{description}</p>
+      </div>
+    </section>
+  )
+}
+
+<style>
+  .home-banner {
+    background-color: #d4d4d8;
+  }
+
+  :global([data-theme="dark"]) .home-banner {
+    background-color: #18181b;
+  }
+
+  /* The home page's own title is the banner. The layout still prints the
+     page heading and lede under it. */
+  :global(main:has(.home-banner) > article > h1:first-of-type),
+  :global(main:has(.home-banner) > article > h1:first-of-type + p) {
+    display: none;
+  }
+</style>

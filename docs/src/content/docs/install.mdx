@@ -1,0 +1,78 @@
+---
+title: Install
+description: Install upnext from the timmo pacman repository, a Debian or RPM package, or a release archive.
+---
+
+upnext is a single Linux binary for x86_64 and aarch64. Every package includes the binary, the `upnext.service` [user service](/running) and shell completions for bash, zsh and fish.
+
+## Arch Linux
+
+Packages are published to the unofficial `timmo` pacman repository. Add it before the other repository sections in `/etc/pacman.conf`:
+
+```ini
+[timmo]
+SigLevel = PackageRequired DatabaseOptional TrustedOnly
+Server = https://packages.timmo.dev/$arch
+```
+
+Then install one of the two packages:
+
+| Package | Built from |
+| --- | --- |
+| `upnext-bin` | The latest release |
+| `upnext-git` | Every push to `main` |
+
+```bash
+sudo pacman -Syu upnext-bin
+```
+
+The packages conflict with each other, so installing one replaces the other. Both replace `twitch-notifications-git`.
+
+The install hook enables `upnext.service` for every user's future logins. If you install with `sudo` from a running desktop session, it also starts the service for you. On upgrade it restarts the service only if it was already running, so a service you stopped stays stopped.
+
+## Debian, Ubuntu and Fedora
+
+Each [GitHub release](https://github.com/timmo001/upnext/releases) has `.deb` and `.rpm` packages:
+
+```bash
+# Debian and Ubuntu
+sudo apt install ./upnext_<version>_amd64.deb
+
+# Fedora
+sudo dnf install ./upnext-<version>-1.x86_64.rpm
+```
+
+These install the user service but don't enable it. See [Running upnext](/running).
+
+## Release archive
+
+Each release also has an `upnext-<version>-linux-<arch>.tar.gz` archive with just the binary. Put it somewhere on your `PATH`:
+
+```bash
+tar -xzf upnext-<version>-linux-x86_64.tar.gz
+install -Dm755 upnext ~/.local/bin/upnext
+```
+
+Release assets come with a `SHA256SUMS` file and a Sigstore bundle. To check an asset was built by this repository's release workflow:
+
+```bash
+gh attestation verify upnext-<version>-linux-x86_64.tar.gz --repo timmo001/upnext
+```
+
+## Build from source
+
+You need [mise](https://mise.jdx.dev), which installs the pinned Bun and Node versions:
+
+```bash
+git clone https://github.com/timmo001/upnext.git
+cd upnext
+mise install
+mise run build
+```
+
+The binary is written to `dist/upnext`.
+
+## Next steps
+
+- [Configure](/configuration) Twitch, YouTube and your channels.
+- [Run upnext](/running) as a user service.
