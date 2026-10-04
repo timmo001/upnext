@@ -34,7 +34,7 @@ The panel shows the feed in sections:
 - **Live**: your channels from `channels.yml`, Twitch first, each in the order you listed them.
 - **Followed**: other channels you follow or subscribe to that are live, by viewers. Collapsed when none are live.
 - **Upcoming**: scheduled streams from your YouTube channels. Collapsed until you open it.
-- **Watch later**: links you've saved with `upnext queue add`. Collapsed when it's empty.
+- **Watch later**: links you've saved with `upnext queue add` or the item menu, and the videos in your [watch-later playlist](/setup/youtube#use-a-playlist-for-watch-later) if you've set one. Collapsed when it's empty.
 - **New uploads**: the last 7 days of uploads from your YouTube channels.
 - **Other uploads**: uploads from your other YouTube subscriptions, once you've [signed in with Google](/setup/youtube#sign-in-with-google). Collapsed until you open it.
 
@@ -43,7 +43,7 @@ Every live row shows its viewer count and category.
 - Type to filter, use Up and Down to move, and press Enter to open the selected item.
 - Press Enter on a section heading, or click it, to collapse or expand it.
 - Press Shift+Enter, or click the checkmark on a video, to mark a YouTube video or a saved item watched. The checkmark on a section heading marks every video in that section watched, or every matching one while you're filtering.
-- Right-click an item, or press the Menu key or Shift+F10, for more options: open it, open its channel, add the channel to your channels if you don't track it yet, or mark it watched.
+- Right-click an item, or press the Menu key or Shift+F10, for more options: open it, open its channel, add the channel to your channels if you don't track it yet, save a YouTube video to watch later, or mark it watched. Saving moves the video into **Watch later**, out of its other section.
 - Press Ctrl+R to recheck.
 - If a source needs you to sign in, it shows at the top. Select it to run `upnext auth`.
 

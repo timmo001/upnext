@@ -115,11 +115,47 @@ Channels in `channels.yml` come first, and they're the only ones that notify you
 - Their live streams show after your channels', ordered by viewers.
 - Their scheduled streams don't show.
 
+## Use a playlist for watch later
+
+YouTube doesn't let apps read or change its own **Watch later** list, so Up Next can use one of your playlists instead. Saved YouTube videos then go in that playlist, and you can add to it from YouTube on any device.
+
+1. On YouTube, create a playlist, such as `Up Next`. Keep it private if you like.
+2. Open it and copy its URL, or the ID after `list=`.
+3. Put it in `config.yml`, then restart the daemon:
+
+```yaml
+youtube:
+  watch_later_playlist: https://www.youtube.com/playlist?list=PLxxxxxxxxxxxxxxxx
+```
+
+```bash
+systemctl --user restart upnext.service
+```
+
+4. Sign in again, so Up Next can change playlists as well as read them:
+
+```bash
+upnext auth youtube
+```
+
+Google now asks to let Up Next manage your YouTube account, which is the narrowest permission that allows changing a playlist.
+
+Once it's set up:
+
+- Videos in the playlist show in **Watch later**, checked every `youtube.poll_interval` seconds.
+- `upnext queue add` and the panel's **Watch later** menu item add YouTube videos to the playlist. Other links still go in the local queue.
+- Marking a video watched removes it from the playlist.
+- A saved video only shows in **Watch later**, so saving a live stream or an upload moves it out of its other section.
+- Deleted and private videos in the playlist are left out.
+
+If you signed in before setting the playlist, the YouTube status changes to `auth-required` until you run `upnext auth youtube` again. Videos already in the local queue stay there.
+
 ## Quota
 
 The YouTube Data API gives each project 10,000 units of quota a day. Each check, every `youtube.poll_interval` seconds (600 by default), costs about:
 
 - 1 unit per 50 subscriptions, to read them.
 - 1 unit per 50 videos to look up. Up Next looks up every video in a `channels.yml` channel's feed, but only the last 7 days of uploads from other subscriptions.
+- 1 unit per 50 videos in the watch-later playlist, if you've set one. Adding or removing a video costs 50 units each time.
 
 With a few hundred subscriptions that comes to around 2,000 units a day, well within the limit. If you do hit it, the YouTube status shows the error until quota resets at midnight Pacific time. Raise `youtube.poll_interval` to check less often.

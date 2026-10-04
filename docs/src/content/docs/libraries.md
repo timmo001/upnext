@@ -62,7 +62,7 @@ main.pipe(Effect.provide(BunServices.layer), BunRuntime.runMain);
 | `SignIn` | Starts signing in to Twitch or Google and returns the page the daemon opened |
 | `AddChannel`, `RemoveChannel` | Change `channels.yml` |
 | `ListCandidates` | Followed Twitch channels or YouTube subscriptions not in `channels.yml` yet |
-| `QueueAdd` | Saves a URL to watch later |
+| `QueueAdd` | Saves a URL to watch later, in the watch-later playlist for a YouTube video when one is set |
 | `MarkWatched` | Hides YouTube videos or removes saved items, given a list of IDs |
 
 Calls fail with `RpcClientError` when the daemon isn't reachable rather than waiting for it to come back.

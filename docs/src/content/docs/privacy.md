@@ -14,6 +14,14 @@ When you run `upnext auth youtube`, Up Next asks Google for read-only access to 
 
 Up Next doesn't change anything on your YouTube account, and it doesn't read anything else from your Google account.
 
+If you set `youtube.watch_later_playlist`, Up Next asks for the `youtube` scope instead, because Google has no narrower scope that allows changing a playlist. Up Next then also:
+
+- reads the videos in that one playlist;
+- adds a video to it when you save one to watch later;
+- removes a video from it when you mark it watched.
+
+It doesn't change any other playlist or anything else on your account.
+
 Google's refresh token is stored in `state.json` under `~/.local/state/upnext` on your computer, and the token is sent only to Google. The subscriptions and videos Up Next reads stay on your computer. They're shown only to apps on the same computer that connect to the daemon's socket, such as the `upnext` CLI and the Omarchy panel, and they're never sent anywhere.
 
 Up Next's use of information received from Google APIs follows the [Google API Services User Data Policy](https://developers.google.com/terms/api-services-user-data-policy), including its Limited Use requirements.

@@ -21,6 +21,7 @@ youtube:
   client_id: ${GOOGLE_CLIENT_ID}
   client_secret: ${GOOGLE_CLIENT_SECRET}
   poll_interval: 600
+  watch_later_playlist: ""
 ```
 
 Every setting is optional.
@@ -32,6 +33,7 @@ Every setting is optional.
 - `youtube.api_key`: a YouTube Data API key. Without one or a Google sign-in, Up Next still shows new uploads, but can't tell which videos are live or upcoming.
 - `youtube.client_id` and `youtube.client_secret`: a Google OAuth desktop client, for signing in to read your subscriptions. See [Set up YouTube](/setup/youtube).
 - `youtube.poll_interval`: seconds between YouTube checks. Defaults to 600.
+- `youtube.watch_later_playlist`: a playlist ID or URL to keep saved YouTube videos in, instead of the local queue. Needs a Google sign-in that can change playlists. See [Use a playlist for watch later](/setup/youtube#use-a-playlist-for-watch-later).
 
 Values can use `$VAR` or `${VAR}` to read environment variables, so you can keep secrets out of the file. The daemon only sees variables set in its own environment, so for the systemd service set them with `systemctl --user edit upnext.service`.
 
