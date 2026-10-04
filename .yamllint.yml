@@ -2,14 +2,16 @@
 extends: default
 
 ignore: |
+  node_modules/
+  dist/
   .agents/skills/
-  pnpm-lock.yaml
 
 rules:
-  line-length:
-    ignore: |
-      .github/
-    level: warning
+  document-start:
+    present: true
+    level: error
+  line-length: disable
   truthy:
-    ignore: |
-      .github/workflows/
+    check-keys: false
+  comments:
+    min-spaces-from-content: 1

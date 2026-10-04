@@ -1,0 +1,15 @@
+[Unit]
+Description=upnext media feed daemon
+Documentation=https://github.com/timmo001/upnext
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Environment=XDG_RUNTIME_DIR=%t
+ExecStart=/usr/bin/upnext serve
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target

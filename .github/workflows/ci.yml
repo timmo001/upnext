@@ -1,0 +1,40 @@
+---
+name: CI
+
+# yamllint disable-line rule:truthy
+on:
+  pull_request: {}
+  push:
+    branches:
+      - main
+  workflow_dispatch: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: timmo001/workflows/.github/workflows/build-bun-cli.yml@f72d1eb6c310502499f5551d65ceca1e478eb266 # 20261003.0
+    with:
+      smoke-test: |-
+        ./dist/upnext --help
+        ./dist/upnext --version
+
+  packages:
+    name: Build packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+
+      - name: Set up mise
+        uses: jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566
+
+      - name: Build packages
+        run: mise run build:packages
