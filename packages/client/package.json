@@ -49,9 +49,9 @@
     "@timmo001/effect-upnext-shared": "2.0.0"
   },
   "peerDependencies": {
-    "effect": "4.0.0"
+    "effect": "4.0.1"
   },
   "devDependencies": {
-    "effect": "4.0.0"
+    "effect": "4.0.1"
   }
 }
