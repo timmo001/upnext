@@ -90,9 +90,39 @@ export class WatchLater extends Context.Service<
 
       yield* publish;
 
+      // A video in the watch-later playlist counts as watched, so its upload
+      // stays hidden once it's removed from the playlist on YouTube.
+      const markSeen = Effect.fn("WatchLater.markSeen")(function* (
+        items: ReadonlyArray<MediaItem>,
+      ) {
+        const ids = Arr.map(items, (item) => item.id);
+
+        yield* state
+          .update((current) => ({
+            ...current,
+            watched: Arr.takeRight(
+              Arr.union(current.watched ?? [], ids),
+              maxWatched,
+            ),
+          }))
+          .pipe(
+            Effect.catch((error) =>
+              Effect.logWarning(
+                "Couldn't mark the watch-later playlist watched",
+                error.message,
+              ),
+            ),
+          );
+
+        yield* feed.remove(ids);
+      });
+
       yield* youtube.watchLater.pipe(
         Stream.runForEach((items) =>
-          Ref.set(playlistItems, items).pipe(Effect.andThen(publish)),
+          Ref.set(playlistItems, items).pipe(
+            Effect.andThen(markSeen(items)),
+            Effect.andThen(publish),
+          ),
         ),
         Effect.forkScoped,
       );
