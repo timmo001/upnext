@@ -11,6 +11,8 @@ Run these from the repository root:
 - `mise run docs:preview`: preview the built site
 - `mise run docs:gen`: regenerate the command reference from the CLI's help
 
+Shared layout, components and config defaults come from [`@timmo001/docs-kit`](https://github.com/timmo001/docs-kit). Run `bun run brand` in `docs` to regenerate `public/logo.png`, `public/apple-touch-icon.png` and the GitHub social preview from `src/assets/logo.svg`.
+
 ## Deployment
 
 The site deploys to Cloudflare Workers with Blume's Astro server bundle, which also serves the read-only docs MCP at `/mcp`. Workers Builds uses:

@@ -11,10 +11,12 @@
     "validate": "blume validate --strict",
     "deploy": "wrangler deploy --config dist/server/wrangler.json",
     "deploy:preview": "wrangler versions upload --config dist/server/wrangler.json",
-    "preview": "blume preview"
+    "preview": "blume preview",
+    "brand": "bun scripts/brand-images.ts"
   },
   "dependencies": {
     "@astrojs/cloudflare": "14.3.3",
+    "@timmo001/docs-kit": "0.1.0",
     "blume": "2.1.3",
     "sharp": "0.35.5"
   },
