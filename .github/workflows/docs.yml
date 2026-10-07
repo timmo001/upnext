@@ -55,4 +55,4 @@ jobs:
 
       - name: Check docs
         working-directory: docs
-        run: bun run check && bun run validate
+        run: bun run --parallel --no-exit-on-error check validate
