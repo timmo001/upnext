@@ -12,7 +12,8 @@ run = ".scripts/linux/pitchfork-panel-dev.sh"
 ready_delay = 1
 
 [daemons.docs]
-run = "exec mise run docs:dev"
-ready_http = "http://localhost:4321/"
-health_http = "http://localhost:4321/"
+run = 'exec mise run docs:dev --host 127.0.0.1 --port "$PORT"'
+port = { expect = [7390], bump = 10 }
+ready_cmd = 'curl -fsS "http://127.0.0.1:$PORT/"'
+health_cmd = 'curl -fsS "http://127.0.0.1:$PORT/"'
 retry = true

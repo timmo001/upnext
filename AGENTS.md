@@ -28,9 +28,10 @@
 
 ## Background Dev Servers
 
-- Start the docs dev server with `mise run serve:docs:dev`, which runs it through Pitchfork in the background and restarts it if it exits or stops responding. Do not run `mise run docs:dev` or `blume dev` in the foreground from an agent.
+- Start the docs dev server with `mise run serve:docs`, which runs it through Pitchfork in the background and restarts it if it exits or stops responding. Do not run `mise run docs:dev` or `blume dev` in the foreground from an agent.
 - Use `mise run serve:docs:status`, `mise run serve:docs:logs`, `mise run serve:docs:restart` and `mise run serve:docs:stop` to manage it.
-- The docs server is configured in `pitchfork.toml` and serves `http://localhost:4321/`.
+- The docs server is configured in `pitchfork.toml`. It serves `http://127.0.0.1:7390/`, or the next free port, and is always at `https://docs.upnext.localhost` through the Pitchfork proxy.
+- Test through that HTTPS address, in the browser, with curl and anywhere else. Never add the proxy's own port, such as `:8443`, even if Pitchfork prints one: that means the 443 redirect is missing (it's lost on reboot), so run `pitchfork proxy doctor`, then `pitchfork proxy setup -y` to restore it. Use the `127.0.0.1` port only when the proxy isn't running.
 - Run a local daemon from source with `mise run serve:daemon`, managed the same way with `serve:daemon:status`, `serve:daemon:logs`, `serve:daemon:restart` and `serve:daemon:stop`. It runs `serve` in watch mode on `$XDG_RUNTIME_DIR/upnext/dev.sock`, so the installed service keeps its socket. Point clients at it with `UPNEXT_SOCK`.
 - `mise run dev:start` runs the local daemon and the development Omarchy panel together. Use the matching `dev:status`, `dev:logs`, `dev:restart` and `dev:stop` tasks so the installed panel comes back.
 

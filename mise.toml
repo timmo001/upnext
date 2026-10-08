@@ -111,7 +111,7 @@ run = "pitchfork restart daemon"
 description = "Stop the background local daemon"
 run = "pitchfork stop daemon"
 
-[tasks."serve:docs:dev"]
+[tasks."serve:docs"]
 description = "Start the docs dev server in the background through Pitchfork"
 run = "pitchfork start docs"
 
