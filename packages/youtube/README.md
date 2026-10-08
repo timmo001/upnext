@@ -35,6 +35,7 @@ const uploads = Effect.gen(function* () {
 ```
 
 - `channelFeed(channelId)`: the latest 15 uploads from a channel's RSS feed. It takes the channel ID that starts with `UC`, not a handle.
+- `channelUploads(channelId)`: the same 15 uploads, read from the channel's uploads playlist through the API, for when the RSS feeds are down. Costs 1 unit of quota and needs the API key or access token.
 - `videos(videoIds)`: titles, live state, stream times and viewer counts, 50 videos per request. The key or token is sent as a header, so it never appears in a URL.
 - `subscriptions`: every channel the signed-in account subscribes to, 50 per request.
 - `playlistTitle(playlistId)`: a playlist's title, or none when there's no such playlist. Needs the access token for a private playlist.

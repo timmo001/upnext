@@ -99,6 +99,28 @@ const PlaylistItemResource = Schema.Struct({
   }),
 });
 
+const UploadsResponse = Schema.Struct({
+  items: Schema.Array(
+    Schema.Struct({
+      snippet: Schema.Struct({
+        title: Schema.String,
+        publishedAt: Schema.DateTimeUtcFromString,
+        videoOwnerChannelId: Schema.optional(Schema.String),
+        videoOwnerChannelTitle: Schema.optional(Schema.String),
+        resourceId: Schema.Struct({ videoId: Schema.optional(Schema.String) }),
+      }),
+      contentDetails: Schema.optional(
+        Schema.Struct({
+          videoPublishedAt: Schema.optional(Schema.DateTimeUtcFromString),
+        }),
+      ),
+    }),
+  ),
+});
+
+// Feeds return 15 uploads, so the fallback reads as many.
+const feedLength = 15;
+
 const PlaylistsResponse = Schema.Struct({
   items: Schema.Array(
     Schema.Struct({ snippet: Schema.Struct({ title: Schema.String }) }),
@@ -159,6 +181,12 @@ export interface YouTubeClientService {
   readonly hasApiKey: boolean;
   // The latest 15 uploads, newest first, from a channel's RSS feed.
   readonly channelFeed: (
+    channelId: string,
+  ) => Effect.Effect<ReadonlyArray<FeedEntry>, YouTubeError>;
+  // The same uploads as `channelFeed`, read from the channel's uploads
+  // playlist through the API, for when the feeds are down. Costs 1 unit of
+  // quota and needs an API key or a sign-in.
+  readonly channelUploads: (
     channelId: string,
   ) => Effect.Effect<ReadonlyArray<FeedEntry>, YouTubeError>;
   // Live state and times for each video, 50 at a time. Needs an API key or a
@@ -358,6 +386,60 @@ export const make = Effect.fn("YouTubeClient.make")(function* (
             ),
         ).pipe(Effect.map(Arr.flatten)),
     }).pipe(Effect.withSpan("YouTubeClient.videos"));
+
+  // A channel's uploads playlist has the channel's ID with UU in place of UC.
+  const channelUploads = (channelId: string) =>
+    Option.match(authenticate, {
+      onNone: () =>
+        Effect.fail(
+          new YouTubeError({
+            message: "reading uploads needs an API key or a sign-in",
+          }),
+        ),
+      onSome: (withAuth) => {
+        const context = `read the uploads for ${channelId}`;
+
+        return fetch(
+          context,
+          HttpClientRequest.get(playlistItemsEndpoint).pipe(
+            HttpClientRequest.setUrlParams({
+              part: "snippet,contentDetails",
+              playlistId: `UU${Str.startsWith("UC")(channelId) ? channelId.slice(2) : channelId}`,
+              maxResults: String(feedLength),
+            }),
+            withAuth,
+          ),
+        ).pipe(
+          Effect.flatMap((response) =>
+            HttpClientResponse.schemaBodyJson(UploadsResponse)(response).pipe(
+              Effect.mapError(failed(context)),
+            ),
+          ),
+          Effect.map(({ items }) =>
+            Arr.getSomes(
+              Arr.map(items, ({ snippet, contentDetails }) =>
+                Option.map(
+                  Option.fromUndefinedOr(snippet.resourceId.videoId),
+                  (videoId): FeedEntry => ({
+                    videoId,
+                    channelId: snippet.videoOwnerChannelId ?? channelId,
+                    channelName:
+                      snippet.videoOwnerChannelTitle ??
+                      snippet.videoOwnerChannelId ??
+                      channelId,
+                    title: snippet.title,
+                    // When the playlist entry was added, unless YouTube
+                    // says when the video was published.
+                    publishedAt:
+                      contentDetails?.videoPublishedAt ?? snippet.publishedAt,
+                  }),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    }).pipe(Effect.withSpan("YouTubeClient.channelUploads"));
 
   const subscriptionsPage = (
     token: Redacted.Redacted,
@@ -563,6 +645,7 @@ export const make = Effect.fn("YouTubeClient.make")(function* (
   return {
     hasApiKey: Option.isSome(authenticate),
     channelFeed,
+    channelUploads,
     videos,
     subscriptions,
     playlistTitle,
