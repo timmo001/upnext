@@ -339,7 +339,10 @@ Panel {
   property point hoverPoint: Qt.point(-1, -1)
 
   function hoverSelect(area, mouse, key) {
-    var point = area.mapToGlobal(mouse.x, mouse.y)
+    hoverSelectAt(area.mapToGlobal(mouse.x, mouse.y), key)
+  }
+
+  function hoverSelectAt(point, key) {
     if (point.x === hoverPoint.x && point.y === hoverPoint.y) return
     hoverPoint = point
     filterController.cursorIndex = filterController.indexForKey(key)
@@ -779,13 +782,16 @@ Panel {
               SectionHeading {
                 id: sectionHeading
                 width: parent.width
-                hasCursor: filterController.cursorIndex === filterController.indexForKey(sectionColumn.modelData.toggleKey)
-                title: (filterController.filterText || root.expanded[sectionColumn.modelData.kind] ? "󰅀 " : "󰅂 ")
-                  + sectionColumn.modelData.title
+                title: sectionColumn.modelData.title
                   + (sectionColumn.modelData.loading ? "" : " · " + sectionColumn.modelData.count)
                   + (filterController.filterText ? " MATCHING" : "")
                 foreground: root.contentForeground
                 fontFamily: root.contentFontFamily
+                collapsible: !filterController.filterText
+                expanded: root.expanded[sectionColumn.modelData.kind] === true
+                toggleHasCursor: filterController.cursorIndex === filterController.indexForKey(sectionColumn.modelData.toggleKey)
+                onToggleHovered: function(point) { root.hoverSelectAt(point, sectionColumn.modelData.toggleKey) }
+                onToggleRequested: root.toggleSection(sectionColumn.modelData.kind)
                 trailingControl: sectionColumn.modelData.markable.length > 0 ? markAllButton : null
 
                 Component {
@@ -802,16 +808,6 @@ Panel {
                     }
                     onClicked: root.markAllWatched(sectionColumn.modelData.kind)
                   }
-                }
-
-                MouseArea {
-                  id: toggleHover
-                  anchors.fill: parent
-                  enabled: !filterController.filterText
-                  hoverEnabled: true
-                  cursorShape: Qt.PointingHandCursor
-                  onPositionChanged: function(mouse) { root.hoverSelect(toggleHover, mouse, sectionColumn.modelData.toggleKey) }
-                  onClicked: root.toggleSection(sectionColumn.modelData.kind)
                 }
               }
 
