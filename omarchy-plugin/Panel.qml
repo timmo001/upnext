@@ -451,8 +451,8 @@ Panel {
     return entry.item.kind === "saved" || entry.item.source === "youtube"
   }
 
-  // Opens the item, or with Shift marks it watched. A video saved in the
-  // playlist opens in the playlist, or on its own with Ctrl.
+  // Opens the item, or with Shift marks it watched, leaving the panel open. A
+  // video saved in the playlist opens in the playlist, or on its own with Ctrl.
   function activateItem(entry, markWatched, alone) {
     if (!service) return
     if (markWatched) {
@@ -462,7 +462,6 @@ Panel {
     service.openUrl(alone && entry.item.source === "youtube"
       ? "https://www.youtube.com/watch?v=" + entry.item.id.substring("youtube:".length)
       : entry.item.url)
-    close()
   }
 
   // What the item menu offers. Channels you don't track yet can be added. A
@@ -496,10 +495,8 @@ Panel {
     itemMenu.close()
     if (!entry || !service) return
     if (action === "open") activateItem(entry, false)
-    else if (action === "channel") {
-      service.openUrl(entry.item.channel.url)
-      close()
-    } else if (action === "add") service.addChannel(entry.item)
+    else if (action === "channel") service.openUrl(entry.item.channel.url)
+    else if (action === "add") service.addChannel(entry.item)
     else if (action === "save") service.watchLater(entry.item)
     else if (action === "watched") service.markWatched(entry.item)
   }
@@ -513,7 +510,6 @@ Panel {
   function openPlaylist(playlist) {
     if (!service) return
     service.openUrl(playlist.url)
-    close()
   }
 
   function activateEntry(entry, modifiers) {
