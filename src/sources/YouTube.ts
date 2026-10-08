@@ -50,6 +50,7 @@ import {
   type SourceStatus,
 } from "@timmo001/effect-upnext";
 import { type ConfigError, UpnextConfig } from "../config/Config.js";
+import { pollDelay } from "../config/quietHours.js";
 import { Desktop } from "../desktop/Desktop.js";
 import { FeedStore } from "../feed/Feed.js";
 import { UpnextState } from "../state/State.js";
@@ -87,6 +88,9 @@ const noPlaylistAccess =
   "The Google sign-in doesn't allow changing your watch-later playlist";
 
 const signInAgain = "Run upnext auth youtube to sign in again";
+
+const feedsDownMessage =
+  "YouTube's channel feeds aren't working, so only channels in channels.yml are being checked";
 
 // A sign-in from before the playlist was set may only allow reading. Google
 // not saying counts as allowed, and the API has the final word.
@@ -389,11 +393,26 @@ export class YouTubeSource extends Context.Service<
             ({ item }) => item.source === "youtube" && item.kind !== "saved",
           );
 
+          // Channels in channels.yml are read through the API when their
+          // feed fails, which YouTube's feeds often do overnight. Other
+          // subscriptions keep what they had, to save quota.
           const results = yield* Effect.forEach(
             targets,
             (id) =>
               client.channelFeed(id).pipe(
-                Effect.map((entries) => ({ id, entries })),
+                Effect.map((entries) => ({ id, entries, fromApi: false })),
+                Effect.catch((error) =>
+                  HashMap.has(trackedChannels, id) && client.hasApiKey
+                    ? client.channelUploads(id).pipe(
+                        Effect.map((entries) => ({
+                          id,
+                          entries,
+                          fromApi: true,
+                        })),
+                        Effect.mapError(() => error),
+                      )
+                    : Effect.fail(error),
+                ),
                 Effect.result,
               ),
             { concurrency: feedConcurrency },
@@ -401,6 +420,7 @@ export class YouTubeSource extends Context.Service<
 
           const failures = Arr.getFailures(results);
           const feeds = Arr.getSuccesses(results);
+          const usedApi = Arr.some(feeds, ({ fromApi }) => fromApi);
 
           const cutoff = DateTime.subtractDuration(now, uploadWindow);
 
@@ -502,25 +522,41 @@ export class YouTubeSource extends Context.Service<
                     checkedAt: now,
                   };
 
-          const status = Option.getOrElse(problem, () =>
-            Arr.match(failures, {
-              onEmpty: (): SourceStatus =>
-                Result.isFailure(details)
-                  ? {
-                      source: "youtube",
-                      state: "error",
-                      message: details.failure.message,
-                      checkedAt: now,
-                    }
-                  : okStatus,
-              onNonEmpty: ([first]): SourceStatus => ({
+          const status = Option.getOrElse(problem, (): SourceStatus => {
+            // Only other subscriptions are left out while the feeds are down.
+            const feedsDown =
+              usedApi &&
+              !Arr.some(Arr.fromIterable(failedChannels), (id) =>
+                HashMap.has(trackedChannels, id),
+              );
+
+            if (Arr.isReadonlyArrayNonEmpty(failures) && !feedsDown) {
+              return {
                 source: "youtube",
                 state: "error",
-                message: `Couldn't read ${failures.length} of ${targets.length} channels: ${first.message}`,
+                message: `Couldn't read ${failures.length} of ${targets.length} channels: ${failures[0].message}`,
                 checkedAt: now,
-              }),
-            }),
-          );
+              };
+            }
+
+            if (Result.isFailure(details)) {
+              return {
+                source: "youtube",
+                state: "error",
+                message: details.failure.message,
+                checkedAt: now,
+              };
+            }
+
+            return usedApi
+              ? {
+                  source: "youtube",
+                  state: "ok",
+                  message: feedsDownMessage,
+                  checkedAt: now,
+                }
+              : okStatus;
+          });
 
           const previousKind = HashMap.fromIterable(
             Arr.map(before, ({ item }) => [item.id, item.kind] as const),
@@ -602,11 +638,15 @@ export class YouTubeSource extends Context.Service<
       // check sooner, such as a channel change or waking from sleep.
       yield* Effect.gen(function* () {
         yield* check(false);
-        const { youtube } = yield* config.settings;
+        const { quietHours, youtube } = yield* config.settings;
 
         yield* Queue.take(trigger).pipe(
           Effect.timeoutOrElse({
-            duration: youtube.pollInterval,
+            duration: yield* pollDelay(
+              quietHours,
+              youtube.pollInterval,
+              youtube.quietPollInterval,
+            ),
             orElse: () => Effect.void,
           }),
         );

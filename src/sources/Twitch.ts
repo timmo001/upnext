@@ -42,6 +42,7 @@ import {
   type SourceState,
 } from "@timmo001/effect-upnext";
 import { UpnextConfig } from "../config/Config.js";
+import { pollDelay } from "../config/quietHours.js";
 import { Desktop } from "../desktop/Desktop.js";
 import { FeedStore } from "../feed/Feed.js";
 import { UpnextState } from "../state/State.js";
@@ -383,9 +384,14 @@ export class TwitchSource extends Context.Service<
             Stream.runForEach(() => check(false)),
           );
 
-        const poll = check(false).pipe(
-          Effect.repeat(Schedule.spaced(settings.twitch.pollInterval)),
-          Effect.delay(settings.twitch.pollInterval),
+        const poll = pollDelay(
+          settings.quietHours,
+          settings.twitch.pollInterval,
+          settings.twitch.quietPollInterval,
+        ).pipe(
+          Effect.flatMap(Effect.sleep),
+          Effect.andThen(check(false)),
+          Effect.forever,
         );
 
         const revalidate = client.validate.pipe(

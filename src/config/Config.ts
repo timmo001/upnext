@@ -15,6 +15,7 @@ import {
   String as Str,
 } from "effect";
 import { playlistIdFrom } from "@timmo001/effect-youtube";
+import { parseTimeOfDay, type QuietHours } from "./quietHours.js";
 
 export class ConfigError extends Schema.TaggedError<ConfigError>()(
   "ConfigError",
@@ -98,11 +99,21 @@ const withDefault = <S extends Schema.Top>(schema: S, value: S["Encoded"]) =>
 export const ConfigFile = Schema.Struct({
   notify_on_startup: withDefault(Schema.Boolean, true),
   sound_file: withDefault(Schema.String, ""),
+  // Local times, as HH:MM, between which each source checks every
+  // quiet_poll_interval instead. Off while either is empty.
+  quiet_hours: withDefault(
+    Schema.Struct({
+      start: withDefault(Schema.String, ""),
+      end: withDefault(Schema.String, ""),
+    }),
+    {},
+  ),
   twitch: withDefault(
     Schema.Struct({
       client_id: withDefault(Schema.String, ""),
       client_secret: withDefault(Schema.String, ""),
       poll_interval: withDefault(Schema.Finite, 60),
+      quiet_poll_interval: withDefault(Schema.Finite, 300),
     }),
     {},
   ),
@@ -114,6 +125,7 @@ export const ConfigFile = Schema.Struct({
       client_id: withDefault(Schema.String, ""),
       client_secret: withDefault(Schema.String, ""),
       poll_interval: withDefault(Schema.Finite, 600),
+      quiet_poll_interval: withDefault(Schema.Finite, 1800),
       // A playlist ID or URL, kept in step with the watch-later queue.
       watch_later_playlist: withDefault(Schema.String, ""),
     }),
@@ -148,10 +160,12 @@ export type ChannelsFile = typeof ChannelsFile.Type;
 export interface Settings {
   readonly notifyOnStartup: boolean;
   readonly soundFile: Option.Option<string>;
+  readonly quietHours: Option.Option<QuietHours>;
   readonly twitch: {
     readonly clientId: string;
     readonly clientSecret: Redacted.Redacted;
     readonly pollInterval: Duration.Duration;
+    readonly quietPollInterval: Duration.Duration;
   };
   readonly youtube: {
     readonly apiKey: Option.Option<Redacted.Redacted>;
@@ -161,6 +175,7 @@ export interface Settings {
       readonly clientSecret: Redacted.Redacted;
     }>;
     readonly pollInterval: Duration.Duration;
+    readonly quietPollInterval: Duration.Duration;
     // The playlist that holds YouTube videos saved to watch later.
     readonly watchLaterPlaylist: Option.Option<string>;
   };
@@ -272,13 +287,41 @@ const toSettings = Effect.fn("toSettings")(function* (
     ),
   );
 
+  const quietStart = Str.trim(file.quiet_hours.start);
+  const quietEnd = Str.trim(file.quiet_hours.end);
+
+  const quietHours =
+    Str.isEmpty(quietStart) || Str.isEmpty(quietEnd)
+      ? Option.none<QuietHours>()
+      : Option.some(
+          yield* Effect.fromOption(
+            Option.filter(
+              Option.zipWith(
+                parseTimeOfDay(quietStart),
+                parseTimeOfDay(quietEnd),
+                (start, end): QuietHours => ({ start, end }),
+              ),
+              ({ start, end }) => start !== end,
+            ),
+          ).pipe(
+            Effect.mapError(
+              () =>
+                new ConfigError({
+                  message: `quiet_hours needs two different HH:MM times, not ${quietStart} and ${quietEnd}`,
+                }),
+            ),
+          ),
+        );
+
   return {
     notifyOnStartup: file.notify_on_startup,
     soundFile,
+    quietHours,
     twitch: {
       clientId: Option.getOrElse(clientId, () => ""),
       clientSecret: Redacted.make(Option.getOrElse(clientSecret, () => "")),
       pollInterval: positiveSeconds(file.twitch.poll_interval, 60),
+      quietPollInterval: positiveSeconds(file.twitch.quiet_poll_interval, 300),
     },
     youtube: {
       apiKey: Option.map(apiKey, Redacted.make),
@@ -291,6 +334,10 @@ const toSettings = Effect.fn("toSettings")(function* (
         }),
       ),
       pollInterval: positiveSeconds(file.youtube.poll_interval, 600),
+      quietPollInterval: positiveSeconds(
+        file.youtube.quiet_poll_interval,
+        1800,
+      ),
       watchLaterPlaylist,
     },
   } satisfies Settings;

@@ -62,16 +62,19 @@ const expected = {
   config: {
     notify_on_startup: false,
     sound_file: "",
+    quiet_hours: { start: "", end: "" },
     twitch: {
       client_id: "${TWITCH_CLIENT_ID}",
       client_secret: "secret",
       poll_interval: 30,
+      quiet_poll_interval: 300,
     },
     youtube: {
       api_key: "",
       client_id: "",
       client_secret: "",
       poll_interval: 600,
+      quiet_poll_interval: 1800,
       watch_later_playlist: "",
     },
   },

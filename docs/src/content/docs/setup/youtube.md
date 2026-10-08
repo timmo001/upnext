@@ -157,5 +157,6 @@ The YouTube Data API gives each project 10,000 units of quota a day. Each check,
 - 1 unit per 50 subscriptions, to read them.
 - 1 unit per 50 videos to look up. Up Next looks up every video in a `channels.yml` channel's feed, but only the last 7 days of uploads from other subscriptions.
 - 1 unit per 50 videos in the watch-later playlist, and 1 for its title, if you've set one. Adding or removing a video costs 50 units each time.
+- While YouTube's RSS feeds are down, 1 unit per channel in `channels.yml`, to read its uploads through the API instead.
 
-With a few hundred subscriptions that comes to around 2,000 units a day, well within the limit. If you do hit it, the YouTube status shows the error until quota resets at midnight Pacific time. Raise `youtube.poll_interval` to check less often.
+With a few hundred subscriptions that comes to around 2,000 units a day, well within the limit. The feeds tend to fail overnight, so set `quiet_hours` to cover those hours and checks slow to `youtube.quiet_poll_interval` while the fallback is costing more. If you do hit the limit, the YouTube status shows the error until quota resets at midnight Pacific time. Raise `youtube.poll_interval` to check less often.

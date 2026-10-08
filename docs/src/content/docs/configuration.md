@@ -12,15 +12,20 @@ If you used twitch-notifications, Up Next imports its config on first run. See [
 ```yaml
 notify_on_startup: true
 sound_file: /usr/share/sounds/freedesktop/stereo/message-new-instant.oga
+quiet_hours:
+  start: "00:00"
+  end: "08:00"
 twitch:
   client_id: ${TWITCH_CLIENT_ID}
   client_secret: ${TWITCH_CLIENT_SECRET}
   poll_interval: 60
+  quiet_poll_interval: 300
 youtube:
   api_key: ${YOUTUBE_API_KEY}
   client_id: ${GOOGLE_CLIENT_ID}
   client_secret: ${GOOGLE_CLIENT_SECRET}
   poll_interval: 600
+  quiet_poll_interval: 1800
   watch_later_playlist: ""
 ```
 
@@ -28,11 +33,14 @@ Every setting is optional.
 
 - `notify_on_startup`: notify about channels that are already live when the daemon starts. Defaults to `true`.
 - `sound_file`: a sound to play with each notification.
+- `quiet_hours.start` and `quiet_hours.end`: local times, as `HH:MM`, between which each source checks every `quiet_poll_interval` instead of `poll_interval`. The window can run past midnight, such as `23:00` to `07:00`. Off unless both are set.
 - `twitch.client_id` and `twitch.client_secret`: your Twitch application's credentials. See [Set up Twitch](/setup/twitch).
 - `twitch.poll_interval`: seconds between checks for channels that live notifications don't cover. Defaults to 60.
+- `twitch.quiet_poll_interval`: seconds between those checks during quiet hours. Defaults to 300. Live notifications still arrive within seconds.
 - `youtube.api_key`: a YouTube Data API key. Without one or a Google sign-in, Up Next still shows new uploads, but can't tell which videos are live or upcoming.
 - `youtube.client_id` and `youtube.client_secret`: a Google OAuth desktop client, for signing in to read your subscriptions. See [Set up YouTube](/setup/youtube).
 - `youtube.poll_interval`: seconds between YouTube checks. Defaults to 600.
+- `youtube.quiet_poll_interval`: seconds between YouTube checks during quiet hours. Defaults to 1800.
 - `youtube.watch_later_playlist`: a playlist ID or URL to keep saved YouTube videos in, instead of the local queue. Needs a Google sign-in that can change playlists. See [Use a playlist for watch later](/setup/youtube#use-a-playlist-for-watch-later).
 
 Values can use `$VAR` or `${VAR}` to read environment variables, so you can keep secrets out of the file. The daemon only sees variables set in its own environment, so for the systemd service set them with `systemctl --user edit upnext.service`.
@@ -54,6 +62,8 @@ Live notifications are only for channels in `channels.yml`. Twitch's live events
 See [Set up YouTube](/setup/youtube) to add channels, get an API key and sign in with Google.
 
 Notifications are only for channels in `channels.yml`, and each channel's `notify` setting picks live streams, uploads or both. Once you've signed in, your other subscriptions' uploads and live streams show too, without notifying you.
+
+Up Next reads each channel's uploads from its RSS feed, which costs no API quota. YouTube's feeds often stop working for a few hours, usually overnight. While they're down, channels in `channels.yml` are read through the API instead, if you've set an API key or signed in, and other subscriptions keep what they last showed until the feeds come back. Setting `quiet_hours` to cover those hours makes the fallback cheaper on quota. See [Quota](/setup/youtube#quota).
 
 ## channels.yml
 
