@@ -14,6 +14,18 @@ Up Next is built from Effect v4 libraries, published to npm and JSR. They work u
 
 The CLI is a client of the same RPCs that `effect-upnext` defines, so anything the CLI does, your app can do too.
 
+## OpenCode plugin
+
+The OpenCode plugin in `opencode-plugin/` gives OpenCode an `upnext` Code Mode namespace, so an agent can read the feed, save links and follow channels. Load it from the repository:
+
+```json
+{
+  "plugins": ["github:timmo001/upnext#main::path:opencode-plugin"]
+}
+```
+
+It reads its tools from `upnext agent tools --json` and runs each with `upnext agent call`, so they always match the `upnext` on your `PATH`. It needs a [running daemon](/running), and leaves the namespace out when the daemon's socket isn't there. Tools that change something ask first, and "always allow" on `channel_add` or `channel_remove` covers one source.
+
 ## Client
 
 ```bash

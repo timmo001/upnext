@@ -15,7 +15,8 @@
 - `packages/shared` (`@timmo001/effect-upnext-shared`): the `MediaItem` schemas every source maps to.
 - `packages/twitch` and `packages/youtube` (`@timmo001/effect-twitch`, `@timmo001/effect-youtube`): standalone platform clients that return `MediaItem`s. They know nothing about upnext's config files or socket.
 - `packages/client` (`@timmo001/effect-upnext`): the socket protocol only (`UpnextRpcs`, `Feed`, requests, `UpnextClient`, `resolveSocketPath`). Shared schemas never go here.
-- `src/`: the daemon, feed store, config, state and the CLI.
+- `src/`: the daemon, feed store, config, state and the CLI. `src/agent/tools.ts` is the Code Mode tool table behind `upnext agent tools` and `upnext agent call`.
+- `opencode-plugin/`: the OpenCode plugin, loaded from this repository. It registers the `upnext` namespace from `upnext agent tools --json`, so a new tool in `src/agent/tools.ts` needs no plugin change. It pins OpenCode's `@opencode/plugin` and Effect versions, and isn't published.
 
 ## Rules
 
