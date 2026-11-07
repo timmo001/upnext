@@ -17,6 +17,7 @@ Each command has its own page with its help, as `upnext <command> --help` prints
 | [`channel`](/commands/channel) | None |
 | [`queue`](/commands/queue) | None |
 | [`watched`](/commands/watched) | None |
+| [`agent`](/commands/agent) | None |
 
 ## Global flags
 
@@ -46,4 +47,5 @@ SUBCOMMANDS
   channel    Add or remove followed channels
   queue      Manage the watch-later queue
   watched    Hide YouTube videos or remove saved items
+  agent      The Code Mode tools the OpenCode plugin registers
 ```

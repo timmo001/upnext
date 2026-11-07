@@ -7,5 +7,6 @@
   "/commands/auth",
   "/commands/channel",
   "/commands/queue",
-  "/commands/watched"
+  "/commands/watched",
+  "/commands/agent"
 ]

@@ -7,6 +7,7 @@ import {
   DateTime,
   Duration,
   Effect,
+  FileSystem,
   Layer,
   Logger,
   Option,
@@ -25,6 +26,7 @@ import {
   resolveSocketPath,
   UpnextClient,
 } from "@timmo001/effect-upnext";
+import { agentToolNames, callAgentTool, manifest } from "./agent/tools.js";
 import { resolvePaths, UpnextConfig } from "./config/Config.js";
 import { importTwitchNotifications } from "./config/legacy.js";
 import { sameFeed } from "./feed/Feed.js";
@@ -493,6 +495,60 @@ const watched = Command.make(
     ),
 ).pipe(Command.withDescription("Hide YouTube videos or remove saved items"));
 
+const agentTools = Command.make(
+  "tools",
+  {
+    json: Flag.Boolean("json").pipe(
+      Flag.withDescription("Print as JSON (the only format)"),
+      Flag.withDefault(true),
+    ),
+  },
+  () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+
+      const available = yield* socketPath.pipe(
+        Effect.flatMap((path) => fs.exists(path)),
+        Effect.orElseSucceed(() => false),
+      );
+
+      yield* Console.log(JSON.stringify(manifest(available), null, 2));
+    }),
+).pipe(
+  Command.withDescription(
+    "Print the Code Mode tools as JSON, and whether the daemon's socket exists",
+  ),
+);
+
+const agentCall = Command.make(
+  "call",
+  {
+    tool: Argument.Literals("tool", agentToolNames).pipe(
+      Argument.withDescription("The tool to run, from upnext agent tools"),
+    ),
+  },
+  (input) =>
+    Effect.gen(function* () {
+      const stdio = yield* Stdio.Stdio;
+
+      const text = yield* stdio.stdin.pipe(
+        Stream.decodeText(),
+        Stream.mkString,
+      );
+
+      yield* Console.log(yield* callAgentTool(input.tool, text));
+    }).pipe(withDaemon),
+).pipe(
+  Command.withDescription(
+    "Run a Code Mode tool with its input as JSON on stdin and print its result as JSON",
+  ),
+);
+
+const agent = Command.make("agent").pipe(
+  Command.withDescription("The Code Mode tools the OpenCode plugin registers"),
+  Command.withSubcommands([agentTools, agentCall]),
+);
+
 const reportCliCause = (cause: Cause.Cause<unknown>) => {
   if (Cause.hasInterruptsOnly(cause)) {
     return Effect.failCause(cause);
@@ -526,6 +582,7 @@ upnext.pipe(
     channel,
     queue,
     watched,
+    agent,
   ]),
   Command.run({ version: packageJson.version }),
   Effect.catchCause(reportCliCause),
