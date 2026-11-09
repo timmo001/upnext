@@ -15,7 +15,7 @@
       "devDependencies": {
         "@effect/tsgo": "0.67.5",
         "@oxlint/plugins": "1.92.0",
-        "@timmo001/oxlint-rules": "0.6.4",
+        "@timmo001/oxlint-rules": "0.6.5",
         "@types/bun": "1.4.4",
         "oxlint": "1.92.0",
         "oxlint-tsgolint": "7.0.2006",
@@ -345,7 +345,7 @@
 
     "@timmo001/effect-youtube": ["@timmo001/effect-youtube@workspace:packages/youtube"],
 
-    "@timmo001/oxlint-rules": ["@timmo001/oxlint-rules@0.6.4", "", { "peerDependencies": { "@oxlint/plugins": "^1.91.0", "oxlint": "^1.91.0" }, "bin": { "oxlint-rules": "dist/cli.js" } }, "sha512-FHVvFrgyhw8JuE+eL+1/ABEWTynttmornkOU5a2WutAZeAkNQK38olP//u0OGOEKgtmHORTbUWD9jq9CmeJXmA=="],
+    "@timmo001/oxlint-rules": ["@timmo001/oxlint-rules@0.6.5", "", { "peerDependencies": { "@oxlint/plugins": "^1.91.0", "oxlint": "^1.91.0" }, "bin": { "oxlint-rules": "dist/cli.js" } }, "sha512-BFDZ+yFyzT0jQA3A5Cgb533e5BwJBS4wWG4Z7JNQ+yjyZJspzssMLRRdoFk1bx7g1mWWvSFgl920vmtTXJJGZQ=="],
 
     "@tufjs/canonical-json": ["@tufjs/canonical-json@2.0.0", "", {}, "sha512-yVtV8zsdo8qFHe+/3kw81dSLyF7D576A5cCFCi4X7B39tWT7SekaEFUnvnWJHz+9qO7qJTah1JbrDjWKqFtdWA=="],
 
