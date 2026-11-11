@@ -23,7 +23,7 @@
     "@effect/platform-bun": "4.1.3",
     "@timmo001/effect-upnext": "workspace:*",
     "@timmo001/effect-upnext-shared": "workspace:*",
-    "effect": "4.1.3",
+    "effect": "4.1.4",
     "@timmo001/effect-twitch": "workspace:*",
     "@timmo001/effect-youtube": "workspace:*"
   },
