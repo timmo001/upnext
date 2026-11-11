@@ -23,7 +23,7 @@
     "sharp": "0.35.5"
   },
   "devDependencies": {
-    "wrangler": "4.159.0"
+    "wrangler": "4.160.0"
   },
   "trustedDependencies": [
     "esbuild",
