@@ -49,7 +49,7 @@
   },
   "dependencies": {
     "@timmo001/effect-upnext-shared": "2.3.0",
-    "fast-xml-parser": "5.12.0"
+    "fast-xml-parser": "5.12.1"
   },
   "devDependencies": {
     "effect": "4.1.4"
