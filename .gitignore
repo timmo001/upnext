@@ -7,8 +7,10 @@ dist-ts/
 !.env.example
 
 # LLMs
-.claude/
+.claude/*
+!.claude/settings.json
 .opencode/
+.mise/
 
 # Editors
 .idea/
