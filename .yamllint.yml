@@ -5,6 +5,7 @@ ignore: |
   node_modules/
   dist/
   .agents/skills/
+  .mise/locks/
 
 rules:
   document-start:
