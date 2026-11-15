@@ -10,7 +10,6 @@ dist-ts/
 .claude/*
 !.claude/settings.json
 .opencode/
-.mise/
 
 # Editors
 .idea/

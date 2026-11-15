@@ -181,7 +181,7 @@ specifiers = ["0.24.1"]
 version = "1.38.0"
 backend = "pipx:yamllint"
 specifiers = ["1.38.0"]
-uv = { path = ".mise/locks/pipx-yamllint/1.38.0", digest = "sha256:1f05ac00b1ceba9a89266a49dd4f8191e7d7351dd224e8be390b9ef0ff52645b" }
+uv = { path = ".mise/locks/pipx-yamllint/1.38.0", digest = "sha256:fb7cc6d2ecd9d0960bc31d2530de8b10b676eb37c3067fb629133cc2d9c3e87e" }
 
 [[tools.pitchfork]]
 version = "2.34.0"
