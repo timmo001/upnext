@@ -28,31 +28,9 @@ permissions:
 
 jobs:
   build:
-    name: Build docs
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
-        with:
-          persist-credentials: false
-
-      - name: Set up mise
-        uses: jdx/mise-action@5ac50f778e26fac95da98d50503682459e86d566
-
-      - name: Regenerate the command reference
-        run: mise run docs:gen
-
-      - name: Check the command reference is up to date
-        run: |
-          changes="$(git status --porcelain -- docs/src/content/docs/commands docs/commands-sidebar.json)"
-          if [ -n "$changes" ]; then
-            echo "$changes"
-            exit 1
-          fi
-
-      - name: Build docs
-        run: mise run docs:build
-
-      - name: Check docs
-        working-directory: docs
-        run: bun run --parallel --no-exit-on-error check validate
+    uses: timmo001/workflows/.github/workflows/check-docs.yml@36ba6651f1296cce685ede8ac38b9574c9291028 # master
+    with:
+      generated-paths: |
+        docs/src/content/docs/commands
+        docs/commands-sidebar.json
+      extra-checks: cd docs && bun run --parallel --no-exit-on-error check validate

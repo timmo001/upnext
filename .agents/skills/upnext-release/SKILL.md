@@ -33,7 +33,7 @@ Releasing is a public, irreversible publish. Commit, push and create the release
 
 ## Omarchy plugin
 
-The plugin is versioned apart from the CLI, in `omarchy-plugin/manifest.json`. Bump it with every plugin change: patch for fixes and tweaks, minor for new features. `publish-omarchy-plugin.yml` validates the manifest and lints the QML on pull requests, and on `main` copies the plugin to `timmo001/omarchy-upnext`, which is what `omarchy plugin add` and `omarchy plugin update` install. A new file in `omarchy-plugin/` must be added to every file list in `.github/scripts/bash/publish-omarchy-plugin.sh` and its `.test.sh`, or validation fails.
+The plugin is versioned apart from the CLI, in `omarchy-plugin/manifest.json`. Bump it with every plugin change: patch for fixes and tweaks, minor for new features. `publish-omarchy-plugin.yml` validates the manifest and lints the QML on pull requests through the shared `validate-omarchy-plugin.yml`, and on `main` copies the plugin to `timmo001/omarchy-upnext` through the shared `publish-omarchy-plugin.yml`, which is what `omarchy plugin add` and `omarchy plugin update` install. It publishes every file git tracks in `omarchy-plugin/`, which must stay flat, with no subdirectories or links.
 
 ## After a release
 
