@@ -29,7 +29,3 @@ import { Schema } from "effect";
 
 const decode = Schema.decodeUnknownEffect(Schema.toCodecJson(MediaItem));
 ```
-
-## Licence
-
-Apache 2.0. See [LICENSE](https://github.com/timmo001/upnext/blob/main/LICENSE).

@@ -82,7 +82,3 @@ These fail with `SourceError` when a source can't do what was asked, and `MarkWa
 ## Errors
 
 Calls fail with `RpcClientError` when the daemon isn't reachable rather than waiting for it to come back. Long-running watchers exit, so run them under a supervisor (such as systemd) that restarts them.
-
-## Licence
-
-Apache 2.0. See [LICENSE](https://github.com/timmo001/upnext/blob/main/LICENSE).

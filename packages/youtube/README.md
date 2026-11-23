@@ -50,7 +50,3 @@ const uploads = Effect.gen(function* () {
 `authorizeUrl`, `exchangeCode` and `refreshTokens` handle a Google sign-in. `authorizeUrl` asks for the read-only YouTube scope, `requiredScope`, unless you pass `scope`, such as `manageScope` to change playlists. They take the ID and secret of a Google OAuth client of the Desktop app type, which can redirect to any loopback port. `authorizeUrl` asks for offline access, so `exchangeCode` returns a refresh token. The returned tokens include the scopes Google granted, when it says.
 
 Failures are a `YouTubeError`, with the HTTP status and the API's reason when there are them, or a `YouTubeAuthError` when Google rejects the sign-in or refresh token, or the sign-in doesn't allow changing playlists.
-
-## Licence
-
-Apache 2.0. See [LICENSE](https://github.com/timmo001/upnext/blob/main/LICENSE).

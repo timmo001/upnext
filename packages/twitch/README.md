@@ -57,7 +57,3 @@ const live = Effect.gen(function* () {
 - `streamOnline(broadcasterIds)`: a stream of EventSub `stream.online` events that reconnects forever. It needs a `Socket.WebSocketConstructor`. Twitch allows up to `maxEventSubChannels` (10) channels per user token.
 
 Failures are a `TwitchError`, or a `TwitchAuthError` when someone needs to sign in again. Neither includes response bodies, so tokens don't end up in logs.
-
-## Licence
-
-Apache 2.0. See [LICENSE](https://github.com/timmo001/upnext/blob/main/LICENSE).
